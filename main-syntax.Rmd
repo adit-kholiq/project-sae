@@ -5,26 +5,76 @@ date: "`r Sys.Date()`"
 output: html_document
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+```{r, message=FALSE}
+# Packages
+library(haven)
+library(dplyr)
 ```
 
-## R Markdown
-
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
-```{r cars}
-summary(cars)
+```{r}
+# Dataset
+data_final <- read_sav("data_final.sav")
+data <- read_sav("KOR23GAB_saeProject.sav")
 ```
 
-## Including Plots
+```{r}
+# Eksplorasi
+clean <- data %>%
+  filter(R407 >= 7 & R407 <= 17) %>%
+  mutate(kode = paste0(R101,R102)) %>%
+  mutate(DISAB = ifelse((R1002 == 1 | R1002 == 2) |
+                        (R1003 == 5 | R1003 == 6) | 
+                        (R1004 == 1 | R1004 == 2) |
+                        (R1005 == 5 | R1005 == 6) |
+                        (R1006 == 1 | R1006 == 2) |
+                        (R1007 == 5 | R1007 == 6) |
+                        (R1008 == 1 | R1008 == 2) |
+                        (R1009 == 5 | R1009 == 6), 1, 0)) %>%
+  mutate(SEKUL = ifelse(R610 == 2, 1, 0)) %>%
+  mutate(DISAB_SEKUL = ifelse(DISAB == 1 & SEKUL == 1, 1, 0)) %>%
+  mutate(DISAB_NON_SEKUL = ifelse(DISAB == 1 & SEKUL == 0, 1, 0)) %>%
+  mutate(NON_DISAB_SEKUL = ifelse(DISAB == 0 & SEKUL == 1, 1, 0)) %>%
+  mutate(NON_DISAB_NON_SEKUL = ifelse(DISAB == 0 & SEKUL == 0, 1, 0)) %>%
+  select(c(R101,R102,kode,R407,DISAB,SEKUL,DISAB_SEKUL,DISAB_NON_SEKUL,NON_DISAB_SEKUL,NON_DISAB_NON_SEKUL))
 
-You can also embed plots, for example:
+clean <- clean %>%
+  group_by(kode) %>%
+  summarise(
+    jumlah_sampel_disab = sum(DISAB == 1),
+    jumlah_sampel_tidak = sum(DISAB == 0),
+    jumlah_sekolah_disab = sum(DISAB_SEKUL == 1),
+    jumlah_sekolah_tidak = sum(NON_DISAB_SEKUL == 1)
+  )
+```
+```{r}
+# Linear Model
+model1 <- lm(formula = APS_Nondis ~ 
+                +, 
+             data = datafix)
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+AIC(model1)
+
+step(model1, direction = "both")
+
+car::vif(model1)
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+```{r}
+# EBLUP dengan Package "msaeDB"
+Nondis <- data_final %>%
+  mutate(
+    VarDir = (APS_Disab/100*RSE_Disab)^2,
+    ) 
+
+Nondis <- as.data.frame(Nondis)
+
+Eblup <- saefh(formula =list(APS_Disab ~ MajorArea),
+               vardir = "VarDir",
+               data = Nondis)
+
+Eblup$fit$estcoef     # estimasi paramter
+Eblup$SAE_Eblup$yi    # hasil pendugaan tak langsung
+Eblup$MSE_Eblup$yi    # MSE
+Eblup$randomEffect$yi # rendomeffect
+```
+
