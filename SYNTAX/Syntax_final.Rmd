@@ -1,0 +1,186 @@
+---
+title: "Projek SAE"
+author: "Adit Kholiq"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r}
+library(dplyr)
+library(readxl)
+library(haven)
+```
+
+
+```{r}
+# Mengimport dataset
+Variabel_penyerta <- read_excel("C:/Users/Adit/OneDrive/Tugas Pengantar SAE/Project SAE/[3] Dataset/Variabel_penyerta.xlsx", 
+    sheet = "Sheet1")
+
+direct <- read_excel("C:/Users/Adit/OneDrive/Tugas Pengantar SAE/Project SAE/[3] Dataset/Direct_estimation.xlsx", 
+    sheet = "data")
+
+data <- read_sav("C:/Users/Adit/OneDrive/Tugas Pengantar SAE/Project SAE/[3] Dataset/KOR23GAB_saeProject.sav")
+```
+
+```{r}
+# Menghitung jumlah desa perkotaan dan perdesaan berdasarkan kabupaten
+dataset <- Variabel_penyerta %>%
+  group_by(Kabupaten) %>%
+  summarise(
+    jumlah_kota = sum(r105...5 == 1),  # Jumlah desa perkotaan
+    jumlah_desa = sum(r105...5 == 2),  # Jumlah desa perdesaan
+    desa_lereng_puncak = sum(r305b == 1),
+    keluarga_listrik = sum(r501a),
+    keluarga_kumuh = sum(r512b3),
+    sd_negeri = sum(r701dk2),
+    sd_swasta = sum(r701dk3),
+    smp_negeri = sum(r701fk2),
+    smp_swasra = sum(r701fk3),
+    sma_negeri = sum(r701hk2),
+    sma_swasta = sum(r701hk3),
+    sdlb_negeri = sum(r701lk2),
+    sdlb_swaswa = sum(r701lk3),
+    smplb_negeri = sum(r701mk2),
+    smplb_swasta = sum(r701mk3),
+    smalb_negeri = sum(r701nk2),
+    smalb_swasta = sum(r701nk3),
+    sarana_keterampilan = sum(r703),
+    jumlah_rs = sum(r704ak2),
+    desa_dokter_p_tinggal = sum(r706a1),
+    desa_dokter_w_tinggal = sum(r706a2),
+    desa_dokter_gigi = sum(r706b),
+    desa_bidan = sum(r706c),
+    desa_nakes_lain = sum(r706d),
+    warga_gizi_buruk = sum(r710),
+    warga_gizi_buruk = sum(r710),
+    jumlah_tunanetra = sum(r805a),
+    jumlah_tunarungu = sum(r805b),
+    jumlah_tunawicara = sum(r805c),
+    jumlah_tunarunguwicara = sum(r805d),
+    jumlah_tunadaksa = sum(r805e),
+    jumlah_tunagrahita = sum(r805f),
+    jumlah_tunalaras = sum(r805g),
+    jumlah_eksakitkusta = sum(r805h),
+    jumlah_cacatganda = sum(r805i),
+    lalulintas_darat = sum(r1001a == 1),
+    desa_jalan_aspal = sum(r1001b1 == 1),
+    desa_angkutan_umum = sum(r1001c1 == 1),
+    desa_pengguna_hp = sum(r1003b == 1),
+    desa_berinternet = sum(r1004 == 1),
+    jumlah_menara_bts = sum(r1005a),
+    jumlah_industri = sum(r1202a),
+    jumlah_industri = sum(r1205a1) + sum(r1205a2) + sum(r1205a3),
+    jumlah_simpanpinjam = sum(r1206a3)
+  )
+```
+
+```{r}
+dataset <- dataset %>%
+  mutate(desa_jalan_aspal = ifelse(is.na(desa_jalan_aspal), 0, desa_jalan_aspal))
+
+hapus <- c("Lembata", "Ende", "Rote Ndao", "Nagekeo")
+final <- dataset %>%
+  filter(!(Kabupaten %in% hapus))
+```
+
+```{r}
+data_final <- left_join(direct, dataset, by = "Kabupaten")
+
+write_sav(data_final, "C:/Users/Adit/OneDrive/Tugas Pengantar SAE/Project SAE/[3] Dataset/data_final.sav")
+```
+
+```{r}
+library(ggplot2)
+library(reshape2)
+library(psych)
+
+cor.plot(data_final[,7:48])
+cor_matrix <- cor(data_final[, c("APS_Nondisab", )])
+cor_df <- melt(coba)
+ggplot(data_final, aes(x = APS_Nondisab)) + xlab("APS Non Disabilitas") + ylab("JUMLAH") +
+  geom_histogram(aes(), 
+                position = "identity", bins = 10, alpha = 0.5)
+
+uji_var <- names(data_final)[7:48]
+
+coba <- for (kolom in uji_var) {
+  cat("Korelasi antara APS Disabilitas dan", kolom, ":\n")
+  cor_test <- cor(data_final$APS_Disab, data_final[[kolom]])
+  print(cor_test)
+  cat("\n")
+}
+```
+
+```{r}
+clean <- data %>%
+  filter(R407 >= 7 & R407 <= 17) %>%
+  mutate(kode = paste0(R101,R102)) %>%
+  mutate(DISAB = ifelse((R1002 == 1 | R1002 == 2) |
+                        (R1003 == 5 | R1003 == 6) | 
+                        (R1004 == 1 | R1004 == 2) |
+                        (R1005 == 5 | R1005 == 6) |
+                        (R1006 == 1 | R1006 == 2) |
+                        (R1007 == 5 | R1007 == 6) |
+                        (R1008 == 1 | R1008 == 2) |
+                        (R1009 == 5 | R1009 == 6), 1, 0)) %>%
+  mutate(SEKUL = ifelse(R610 == 2, 1, 0)) %>%
+  mutate(DISAB_SEKUL = ifelse(DISAB == 1 & SEKUL == 1, 1, 0)) %>%
+  mutate(DISAB_NON_SEKUL = ifelse(DISAB == 1 & SEKUL == 0, 1, 0)) %>%
+  mutate(NON_DISAB_SEKUL = ifelse(DISAB == 0 & SEKUL == 1, 1, 0)) %>%
+  mutate(NON_DISAB_NON_SEKUL = ifelse(DISAB == 0 & SEKUL == 0, 1, 0)) %>%
+  select(c(R101,R102,kode,R407,DISAB,SEKUL,DISAB_SEKUL,DISAB_NON_SEKUL,NON_DISAB_SEKUL,NON_DISAB_NON_SEKUL))
+
+clean <- clean %>%
+  group_by(kode) %>%
+  summarise(
+    jumlah_sampel_disab = sum(DISAB == 1),
+    jumlah_sampel_tidak = sum(DISAB == 0),
+    jumlah_sekolah_disab = sum(DISAB_SEKUL == 1),
+    jumlah_sekolah_tidak = sum(NON_DISAB_SEKUL == 1)
+  )
+      
+```
+
+```{r}
+data <- data %>%
+  mutate(disable = ifelse((R1002 == 1 | R1002 == 2) |
+                        (R1003 == 5 | R1003 == 6) | 
+                        (R1004 == 1 | R1004 == 2) |
+                        (R1005 == 5 | R1005 == 6) |
+                        (R1006 == 1 | R1006 == 2) |
+                        (R1007 == 5 | R1007 == 6) |
+                        (R1008 == 1 | R1008 == 2) |
+                        (R1009 == 5 | R1009 == 6), 1, 5))
+
+```
+```{r}
+model1 <- lm(formula = APS_Nondis ~ 
+                +, 
+             data = datafix)
+
+AIC(model1)
+
+step(model1, direction = "both")
+
+car::vif(model1)
+```
+
+## EBLUP dengan Package "msaeDB"
+```{r}
+APS_Nondis <- APS_Nondis %>%
+  mutate(VarDir = SD^2)
+
+milkHB <- as.data.frame(milkHB)
+
+Eblup <- saefh(formula =list(yi~MajorArea),
+               vardir = "VarDir",
+               data = milkHB)
+
+Eblup$fit$estcoef     # estimasi paramter
+Eblup$SAE_Eblup$yi    # hasil pendugaan tak langsung
+Eblup$MSE_Eblup$yi    # MSE
+Eblup$randomEffect$yi # rendomeffect
+```
+
+
