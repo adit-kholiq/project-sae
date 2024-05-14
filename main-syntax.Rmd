@@ -10,6 +10,7 @@ output: html_document
 library(haven)
 library(dplyr)
 library(readxl)
+library(msaeDB)
 ```
 
 ```{r}
@@ -158,41 +159,60 @@ data_olah
 
 ```{r}
 # Memmbuat dataset khusus pengolahan
-data_olah <- data_final %>%
-  select()
+data_olahan <- data_olah[,-c(1,3,4,5,6)]
 ```
 
 ```{r}
 # Cek Korelasi
-for (i in 1:ncol(data_olah)){
-  a <- cor.test(x=as.matrix(data_olah[i]), y=data_olah$APS_Nondis, method="pearson" )
-                  print(i)
-                  print(colnames(data_olah[i]))
-                  print(a$estimate)
-                  print(a$p.value)
-                  }
+for (i in 1:ncol(data_olahan)){
+  a <- cor.test(x=as.matrix(data_olahan[i]), y=data_olahan$APS_Disab, method="pearson" )
+}
+
+
+results <- data.frame(Variable = character(),
+                      Correlation = numeric(),
+                      Cutoff = character(),
+                      P_Value = numeric(),
+                      Decision = character(),
+                      stringsAsFactors = FALSE)
+
+# Melakukan iterasi untuk setiap kolom dalam data_olahan
+for (i in 1:(ncol(data_olahan)-1)) {
+  # Menghitung uji korelasi
+  a <- cor.test(x = data_olahan[[i]], y = data_olahan$APS_Nondis, method = "pearson")
+  
+  # Menentukan keputusan berdasarkan p-value
+  cutoff <- ifelse(a$estimate >= 0.5, "Korelasi >= 0,5", 
+                     ifelse(a$estimate >= 0.3,"Korelasi >= 0,3",
+                            ifelse(a$estimate >= 0.2,"Korelasi >= 0,2",
+                                   ifelse(a$estimate >= 0.1,"Korelasi >= 0,1","Korelasi Rendah"))))
+  
+  # Menentukan keputusan berdasarkan p-value
+  decision <- ifelse(a$p.value < 0.05, "Signifikan 5 Persen", 
+                     ifelse(a$p.value < 0.1,"Signifikan 10 Persen","Tidak Signifikan"))
+  
+  # Menambahkan hasil ke data frame
+  results <- rbind(results, data.frame(Variable = names(data_olahan)[i],
+                                       Correlation = a$estimate,
+                                       Cutoff = as.factor(cutoff),
+                                       P_Value = a$p.value,
+                                       Decision = as.factor(decision)))
+  
+}
+
+print(results)
+
+summary(results)
+
 ```
 
 
 ```{r}
-# Linear Model
-model1 <- lm(formula = APS_Nondis ~ 
-                +, 
-             data = data_olah)
-
-AIC(model1)
-
-step(model1, direction = "both")
-
-car::vif(model1)
-```
-
-```{r}
-# EBLUP dengan Package "msaeDB"
-Nondis <- data_final %>%
+# EBLUP Disab dengan Package "msaeDB"
+Disab <- data_olah[,-c(1:3,6,)] %>%
   mutate(
-    VarDir = (APS_Disab/100*RSE_Disab)^2,
-    ) 
+    VarDir = ((APS_Disab/100)*RSE_Disab)^2,
+    )
 
 Nondis <- as.data.frame(Nondis)
 
