@@ -25,6 +25,28 @@ PODES21_auxvar_3 <- read_sav("PODES21_auxvar_3.sav")       # Podes Dataset 3
 PODES21_auxvar_4 <- read_sav("PODES21_auxvar_4.sav")       # Podes Dataset 4
 
 ```
+```{r}
+kode <- unique(PODES21_auxvar_1[,c(3,5)]) %>%
+  rename(
+    Provinsi = r101n,
+    Kabupaten = r102n
+  )
+
+gab <- left_join(kode, data_final[,c(1,3,5)], by = "Kabupaten") %>%
+  mutate(
+    kat_Nondis = ifelse(is.na(RSE_Nondis), "NA",
+                        ifelse(RSE_Nondis >= 50, "Lebih dari 50 Persen",
+                               ifelse(RSE_Nondis >= 25, "RSE 25 - 50 Persen",
+                                      ifelse(RSE_Nondis > 0, "RSE 0 - 25 Persen", "RSE 0")))),
+    kat_Disab = ifelse(is.na(RSE_Disab), "NA",
+                       ifelse(RSE_Disab >= 50, "Lebih dari 50 Persen",
+                              ifelse(RSE_Disab >= 25, "RSE 25 - 50 Persen",
+                                     ifelse(RSE_Disab > 0, "RSE 0 - 25 Persen", "RSE 0"))))
+    )
+
+View(table(factor(gab$Provinsi),factor(gab$kat_Disab)))
+
+```
 
 ```{r}
 # Eksplorasi
@@ -201,60 +223,215 @@ rownames(results) <- c(1:63)
 print(results)
 ```
 
-
 ```{r}
-summary(results)
+results %>%
+  #filter(Cutoff == c("Korelasi >= 0,5", "Korelasi >= 0,3", "Korelasi >= 0,2"))
+  filter(abs(Correlation) >= 0.25)
 ```
 
-
+## EBLUP Disab dengan Package "msaeDB"
 ```{r}
-# EBLUP Disab dengan Package "msaeDB"
 Disab <- data_olahan[,c(1,2,5,8:16,20:22,24,29:31,40,42,47,51:53,56:58,61,63)] %>%
   mutate(
-    VarDir = ((APS_Disab/100)*RSE_Disab)^2,
+    APS_Disab = APS_Disab/100,
+    APS_Disab = ifelse(APS_Disab == 1, 0.9999, 
+                       ifelse(APS_Disab == 0, 0.0001, APS_Disab)),
+    jumlah_SKTM = jumlah_SKTM/1000,
+    RSE_Disab = ifelse(RSE_Disab == 0, 0.0001, RSE_Disab),
+    VarDir = (APS_Disab*RSE_Disab)^2
     )
 
-Disab <- na.omit(Disab)
 
-# Model dengan semua variabel yang relevan
-Eblup1 <- eblupFH(formula = APS_Disab ~
-                              keluarga_listrik +
-                              jumlah_menara_bts +
+Disab <- na.omit(Disab)
+Disab <- data.frame(Disab)
+
+# Model dengan semua variabel yang memiliki Korelasi >= 0.2
+Eblup1 <- saefh(formula = list(APS_Disab ~
+                              #keluarga_listrik +
+                              #jumlah_menara_bts +
                               murid_sd +
-                              murid_smp +
-                              murid_sma +
-                              murid_slb +
-                              jumlah_sd +
-                              jumlah_smp +
+                              #murid_smp +
+                              #murid_sma +
+                              #murid_slb +
+                              #jumlah_sd +
+                              #jumlah_smp +
                               jumlah_sma +
-                              desa_dalam_hutan +
-                              desa_tepi_hutan +
-                              desa_luar_hutan +
-                              desa_ketinggian_kurang_200 +
-                              keluarga_bukan_listrik +
-                              jumlah_SKTM +
-                              jumlah_sarana_kesehatan +
-                              jumlah_desa_tidak_ada_ponsel +
-                              jumlah_desa_lalu_lintas_lainnya +
-                              jumlah_korban_bunuh_diri +
-                              Persen_desa_dalam_hutan +
-                              Persen_desa_tepi_hutan +
+                              #desa_dalam_hutan +
+                              #desa_tepi_hutan +
+                              #desa_luar_hutan +
+                              #desa_ketinggian_kurang_200 +
+                              #keluarga_bukan_listrik +
+                              #jumlah_SKTM +
+                              #jumlah_sarana_kesehatan +
+                              #jumlah_desa_tidak_ada_ponsel +
+                              #jumlah_desa_lalu_lintas_lainnya +
+                              #jumlah_korban_bunuh_diri +
+                              #Persen_desa_dalam_hutan +
+                              #Persen_desa_tepi_hutan +
                               Persen_desa_luar_hutan +
-                              Rasio_bts_luas +
-                              Rasio_murid_sd +
-                              Rasio_murid_smp +
-                              Rasio_nakes_faskes +
-                              Rasio_angkutan_umum_darat,
-              vardir = VarDir,
+                              #Rasio_bts_luas +
+                              #Rasio_murid_sd +
+                              #Rasio_murid_smp +
+                              Rasio_nakes_faskes 
+                              #Rasio_angkutan_umum_darat
+                              ),
+              vardir = "VarDir",
               data = Disab)
 
-Disab$VarDir <- as.numeric(Disab$VarDir)
-
-Eblup$fit$estcoef     # estimasi paramter
-Eblup$SAE_Eblup$yi    # hasil pendugaan tak langsung
-Eblup$MSE_Eblup$yi    # MSE
-Eblup$randomEffect$yi # rendomeffect
-
-colnames(Disab)
+Eblup1$fit$estcoef     # estimasi paramter
+aps_eblupDB <- Eblup1$SAE_Eblup$APS_Disab    # hasil pendugaan tak langsung
+Eblup1$MSE_Eblup$APS_Disab    # MSE
+Eblup1$randomEffect$APS_Disab # randomeffect
+rse_eblupDB <- sqrt(Eblup1$MSE_Eblup$APS_Disab)/Eblup1$SAE_Eblup$APS_Disab*100    # hasil RSE pendugaan tidak langsung
 ```
+
+## Perbandingan direct estimation dengan indirect estimmation
+```{r}
+compare <- data.frame(na.omit(data_merge[,c(1,5)]), 
+                      APS_Direct = aps_eblupDB,
+                      RSE_Indirect = rse_eblupDB, 
+                      APS_Indirect = aps_eblupDB) %>%
+  rename(RSE_Direct = RSE_Disab)
+
+summary(compare)
+
+gab <- left_join(kode, compare, by = "Kabupaten") %>%
+  mutate(
+    kat_Direct = ifelse(RSE_Direct >= 50, "Lebih dari 50 Persen",
+                        ifelse(RSE_Direct >= 25, "RSE 25 - 50 Persen",
+                               ifelse(RSE_Direct > 0, "RSE 0 - 25 Persen", "RSE 0"))),
+    kat_Indirect = ifelse(RSE_Indirect >= 50, "Lebih dari 50 Persen",
+                        ifelse(RSE_Indirect >= 25, "RSE 25 - 50 Persen",
+                               ifelse(RSE_Indirect > 0, "RSE 0 - 25 Persen", "RSE 0"))),
+    )
+
+table(factor(gab$Provinsi),factor(gab$kat_Indirect))
+
+write_sav(compare,"Hasil EBLUP.sav")
+```
+
+
+## Uji nomalitas random effect
+```{r}
+# Uji Normalitas dengan Shapiro-Wilk Test
+shapiro.test(Eblup1$randomEffect$APS_Disab)
+
+# Uji Normalitas dengan Jargue-Bera Test
+tseries::jarque.bera.test(Eblup1$randomEffect$APS_Disab)
+
+```
+
+
+```{r}
+ggplot(data = compare, aes(x = 1:28, y = APS.Indirect)) +
+  geom_line(aes(y = APS.Indirect, color = "Indirect")) +
+  geom_line(aes(y = APS.Direct, color = "Direct")) +
+  labs(y = "Estimation",
+       x = "ID") +
+  theme_update()
+```
+
+
+## Cluster podes
+```{r}
+data.clust = scale(data_olahan[, c(10,16,53,58)])
+kmo = function(x)
+{
+  x=subset(data.clust, complete.cases(x))
+  r=cor(data.clust)
+  r2= r^2
+  i=solve(r)
+  d=diag(i)
+  p2= (-i/sqrt(outer(d,d)))^2
+  diag(r2) <-  diag(p2) <- 0
+  KMO <- sum(r2)/(sum(r2)+sum(p2))
+  MSA <- colSums(r2)/(colSums(r2)+colSums(p2))
+  return(list(KMO=KMO, MSA=MSA))
+}
+
+kmo(data.clust)
+
+library(REdaS)
+KMOS(data.clust)
+
+```
+
+```{r}
+# Menentukan jumlah Cluster Terbaik
+library(factoextra)
+sill <- fviz_nbclust(data.clust, cluster::pam, method = "silhouette")
+sill
+sill$data
+
+data_olahan <- data_olahan %>%
+  mutate(
+    APS_Disab = APS_Disab/100,
+    VarDir = (APS_Disab*RSE_Disab)^2
+  )
+
+data_klaster <- data_olahan[,c(1,2,10,16,53,58,65)]
+
+data_klaster <- as.data.frame(data_klaster)
+rownames(data_klaster) <- data_olah$Kabupaten
+
+
+library(cluster)
+
+set.seed(123)
+km_res <- pam(data.clust, 2, nstart = 20)
+
+data_klaster$cluster <- km_res$cluster
+fviz_cluster(km_res, data = data.clust)
+
+```
+
+```{r}
+data_klaster2$cluster <- data_klaster$cluster
+data_klaster2$VarDir <- ifelse(is.na(data_klaster2$VarDir), 0, data_klaster2$VarDir)
+data_klaster2$APS_Disab <-  ifelse(is.na(data_klaster2$APS_Disab), 0, data_klaster2$APS_Disab)
+data_klaster2$nonsample <- ifelse(data_klaster2$VarDir==0, TRUE, FALSE)
+```
+
+
+```{r}
+saeNS <- saefhns(formula=list(APS_Disab ~
+                              #keluarga_listrik +
+                              #jumlah_menara_bts +
+                              murid_sd +
+                              #murid_smp +
+                              #murid_sma +
+                              #murid_slb +
+                              #jumlah_sd +
+                              #jumlah_smp +
+                              jumlah_sma +
+                              #desa_dalam_hutan +
+                              #desa_tepi_hutan +
+                              #desa_luar_hutan +
+                              #desa_ketinggian_kurang_200 +
+                              #keluarga_bukan_listrik +
+                              #jumlah_SKTM +
+                              #jumlah_sarana_kesehatan +
+                              #jumlah_desa_tidak_ada_ponsel +
+                              #jumlah_desa_lalu_lintas_lainnya +
+                              #jumlah_korban_bunuh_diri +
+                              #Persen_desa_dalam_hutan +
+                              #Persen_desa_tepi_hutan +
+                              Persen_desa_luar_hutan +
+                              #Rasio_bts_luas +
+                              #Rasio_murid_sd +
+                              Rasio_murid_smp
+                              #Rasio_nakes_faskes 
+                              #Rasio_angkutan_umum_darat
+                              ), 
+                 vardir="VarDir", 
+                 cluster="cluster", 
+                 nonsample = "nonsample", 
+                 data = data_klaster2)
+
+saeNS$MSE_Eblup_all
+saeNS$SAE_Eblup_all
+
+```
+
+
 
