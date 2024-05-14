@@ -9,12 +9,13 @@ output: html_document
 # Packages
 library(haven)
 library(dplyr)
+library(readxl)
 ```
 
 ```{r}
 # Dataset
-data_final <- read_sav("data_final.sav")        # Main Dataset
-
+data_final <- read_sav("data_final.sav")          # Main Dataset
+          
 data <- read_sav("KOR23GAB_saeProject.sav")     # Predictor Dataset
 
 PODES21_auxvar_1 <- read_sav("PODES21_auxvar_1.sav")       # Podes Dataset 1
@@ -60,13 +61,20 @@ clean <- clean %>%
 data1 <- PODES21_auxvar_1 %>%
   rename(Kabupaten = r102n) %>%
   group_by(Kabupaten) %>%
-  summarise(jumlah_desa_luar_hutan = sum(r309a == 3),
-            desa_penerangan_jalan = sum(r502b == 1|r502b == 2), # Penerangan jalan sebagian besar & kecil
+  summarise(jumlah_deskel = n(),
+            permukiman_kumuh = sum(r512a == 1),
+            desa_dalam_hutan = sum(r309a == 1),      
+            desa_tepi_hutan = sum(r309a == 2),
+            desa_luar_hutan = sum(r309a == 3),
+            desa_ketinggian_lebih_200 = sum(r307b2 >= 200),
+            desa_ketinggian_kurang_200 = sum(r307b2 < 200),
+            desa_penerangan_jalan = sum(r502b == 1| r502b == 2),
             desa_tanpa_penerangan_jalan = sum(r502b == 3),
-            penghasilan_utama_pertanian = sum(r403a== 1),
-            desa_airminum_bukan_kemasan = sum(r507a== 3|r507a== 4|r507a== 5|
-                                                r507a==6|r507a==7|r507a==8|
-                                                r507a==9| r507a==10) # Air minum bukan kemasan dan isi ulang
+            penghasilan_utama_pertanian = sum(r403a == 1),
+            desa_airminum_bukan_kemasan = sum(r507a == 3| r507a == 4| r507a == 5|
+                                              r507a == 6| r507a == 7| r507a == 8|
+                                              r507a == 9| r507a == 10),
+            keluarga_bukan_listrik = sum(r501b),
             )
 
 data2 <- PODES21_auxvar_2 %>%
@@ -75,23 +83,94 @@ data2 <- PODES21_auxvar_2 %>%
   summarise(jumlah_SKTM = sum(r711),
             jumlah_sarana_kesehatan = sum(r704ak2|r704bk2|r704ck2|r704dk2|r704ek2|
                                           r704fk2|r704gk2|r704hk2|r704ik2|r704lk2|
-                                          r704mk2)
+                                          r704mk2),
+            jumlah_faskes_lain = sum(r704bk2|r704ck2|r704dk2|r704ek2|
+                                     r704fk2|r704gk2|r704hk2|r704ik2|
+                                     r704jk2|r704kk2|r704lk2|r704mk2),
+            jumlah_tenaga_kesehatan = sum(r706a1|r706a2|r706b|r706c|r706d),
+            jumlah_faskes = sum(r704ak2|r704bk2|r704ck2|r704dk2|
+                                r704ek2|r704fk2|r704gk2|r704hk2|
+                                r704ik2|r704jk2|r704kk2|r704lk2|r704mk2),
+            jumlah_warga_kekurangan_gizi = sum(r710)
             )
 
 data3 <- PODES21_auxvar_3 %>%
   rename(Kabupaten = r102n) %>%
   group_by(Kabupaten) %>%
   summarise(jumlah_desa_sinyal_kuat = sum(r1005c == 1|r1005c == 2),
-            jumlah_desa_sinyal_4G = sum(r1005c == 1)
+            jumlah_desa_sinyal_4G = sum(r1005c == 1),
+            jumlah_desa_sebagian_besar_ponsel = sum(r1003b == 1),
+            jumlah_desa_sebagian_kecil_ponsel = sum(r1003b == 2),
+            jumlah_desa_tidak_ada_ponsel = sum(r1003b == 3),
+            jumlah_desa_lalu_lintas_darat = sum(r1001a == 1),
+            jumlah_desa_lalu_lintas_lainnya = sum(r1001a == 2|r1001a == 3|r1001a == 4),
+            jumlah_desa_aspal = sum(r1001b1 == 1),
+            jumlah_desa_angkutan_umum = sum(r1001c1 == 1 | r1001c1 == 2),
+            jumlah_koperasi_simpan_pinjam = sum(r1206a3),
+            jumlah_koperasi_lainnya = sum(r1206a4)
             )
 
 data4 <- PODES21_auxvar_4 %>%
   rename(Kabupaten = r102n) %>%
   group_by(Kabupaten) %>%
-  summarise(jumlah_korban_bunuh_diri = sum(r1307ak2|r1307ak3),
-            jumlah_korban_pembunuhan = sum(r1307bk2|r1307bk3) #gaada isinya
+  summarise(jumlah_korban_bunuh_diri = sum(r1307ak2|r1307ak3)
   )
 
+```
+
+
+```{r}
+# Merge Dataset Podes
+data_merge <- full_join(data1, data2, by = "Kabupaten")
+data_merge <- full_join(data_merge, data3, by = "Kabupaten")
+data_merge <- full_join(data_merge, data4, by = "Kabupaten")
+data_merge <- full_join(data_final, data_merge, by = "Kabupaten")
+
+```
+
+
+```{r}
+data_olah <- data_merge %>%
+  mutate(
+    jumlah_desa_aspal = ifelse(is.na(jumlah_desa_aspal),0,jumlah_desa_aspal),
+    persen_perkotaan = (jumlah_kota/jumlah_deskel)*100,
+    persen_perdesaan = (jumlah_desa/jumlah_deskel)*100,
+    persen_kumuh = (permukiman_kumuh/jumlah_deskel)*100,
+    Persen_desa_dalam_hutan = (desa_dalam_hutan/jumlah_deskel)*100,
+    Persen_desa_tepi_hutan = (desa_tepi_hutan/jumlah_deskel)*100,
+    Persen_desa_luar_hutan = (desa_luar_hutan/jumlah_deskel)*100,
+    Persen_desa_ketinggian_lebih_200 = (desa_ketinggian_lebih_200/jumlah_deskel)*100,
+    Persen_desa_ketinggian_kurang_200 = (desa_ketinggian_kurang_200/jumlah_deskel)*100,
+    Rasio_bts_luas = jumlah_menara_bts/luas_wilayah,
+    Rasio_murid_sd = murid_sd/jumlah_sd,
+    Rasio_murid_smp = murid_smp/jumlah_smp,
+    Rasio_murid_sma = murid_sma/jumlah_sma,
+    Rasio_murid_slb = murid_slb/jumlah_slb,
+    Rasio_nakes_faskes = jumlah_tenaga_kesehatan/jumlah_faskes,
+    Rasio_aspal_darat = jumlah_desa_aspal/jumlah_desa_lalu_lintas_darat,
+    Rasio_angkutan_umum_darat = jumlah_desa_angkutan_umum/jumlah_desa_lalu_lintas_darat,
+    Rasio_simpan_pinjam_lainnya = jumlah_koperasi_simpan_pinjam/jumlah_koperasi_lainnya
+  )
+sum(is.infinite(12/0))
+data_olah
+```
+
+
+```{r}
+# Memmbuat dataset khusus pengolahan
+data_olah <- data_final %>%
+  select()
+```
+
+```{r}
+# Cek Korelasi
+for (i in 1:ncol(data_olah)){
+  a <- cor.test(x=as.matrix(data_olah[i]), y=data_olah$APS_Nondis, method="pearson" )
+                  print(i)
+                  print(colnames(data_olah[i]))
+                  print(a$estimate)
+                  print(a$p.value)
+                  }
 ```
 
 
@@ -99,7 +178,7 @@ data4 <- PODES21_auxvar_4 %>%
 # Linear Model
 model1 <- lm(formula = APS_Nondis ~ 
                 +, 
-             data = datafix)
+             data = data_olah)
 
 AIC(model1)
 
