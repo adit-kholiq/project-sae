@@ -13,15 +13,22 @@ library(dplyr)
 
 ```{r}
 # Dataset
-data_final <- read_sav("data_final.sav")
-data <- read_sav("KOR23GAB_saeProject.sav")
+data_final <- read_sav("data_final.sav")        # Main Dataset
+
+data <- read_sav("KOR23GAB_saeProject.sav")     # Predictor Dataset
+
+PODES21_auxvar_1 <- read_sav("PODES21_auxvar_1.sav")       # Podes Dataset 1
+PODES21_auxvar_2 <- read_sav("PODES21_auxvar_2.sav")       # Podes Dataset 2
+PODES21_auxvar_3 <- read_sav("PODES21_auxvar_3.sav")       # Podes Dataset 3
+PODES21_auxvar_4 <- read_sav("PODES21_auxvar_4.sav")       # Podes Dataset 4
+
 ```
 
 ```{r}
 # Eksplorasi
 clean <- data %>%
   filter(R407 >= 7 & R407 <= 17) %>%
-  mutate(kode = paste0(R101,R102)) %>%
+  mutate(KODE = paste0(R101,R102)) %>%
   mutate(DISAB = ifelse((R1002 == 1 | R1002 == 2) |
                         (R1003 == 5 | R1003 == 6) | 
                         (R1004 == 1 | R1004 == 2) |
@@ -35,17 +42,59 @@ clean <- data %>%
   mutate(DISAB_NON_SEKUL = ifelse(DISAB == 1 & SEKUL == 0, 1, 0)) %>%
   mutate(NON_DISAB_SEKUL = ifelse(DISAB == 0 & SEKUL == 1, 1, 0)) %>%
   mutate(NON_DISAB_NON_SEKUL = ifelse(DISAB == 0 & SEKUL == 0, 1, 0)) %>%
-  select(c(R101,R102,kode,R407,DISAB,SEKUL,DISAB_SEKUL,DISAB_NON_SEKUL,NON_DISAB_SEKUL,NON_DISAB_NON_SEKUL))
+  select(c(KODE,DISAB,SEKUL,DISAB_SEKUL,DISAB_NON_SEKUL,NON_DISAB_SEKUL,NON_DISAB_NON_SEKUL))
 
 clean <- clean %>%
-  group_by(kode) %>%
+  group_by(KODE) %>%
   summarise(
+    jumlah_sampel = sum(DISAB),
     jumlah_sampel_disab = sum(DISAB == 1),
     jumlah_sampel_tidak = sum(DISAB == 0),
+    jumlah_sekolah = sum(SEKUL),
     jumlah_sekolah_disab = sum(DISAB_SEKUL == 1),
     jumlah_sekolah_tidak = sum(NON_DISAB_SEKUL == 1)
   )
 ```
+
+```{r}
+data1 <- PODES21_auxvar_1 %>%
+  rename(Kabupaten = r102n) %>%
+  group_by(Kabupaten) %>%
+  summarise(jumlah_desa_luar_hutan = sum(r309a == 3),
+            desa_penerangan_jalan = sum(r502b == 1|r502b == 2), # Penerangan jalan sebagian besar & kecil
+            desa_tanpa_penerangan_jalan = sum(r502b == 3),
+            penghasilan_utama_pertanian = sum(r403a== 1),
+            desa_airminum_bukan_kemasan = sum(r507a== 3|r507a== 4|r507a== 5|
+                                                r507a==6|r507a==7|r507a==8|
+                                                r507a==9| r507a==10) # Air minum bukan kemasan dan isi ulang
+            )
+
+data2 <- PODES21_auxvar_2 %>%
+  rename(Kabupaten = r102n) %>%
+  group_by(Kabupaten) %>%
+  summarise(jumlah_SKTM = sum(r711),
+            jumlah_sarana_kesehatan = sum(r704ak2|r704bk2|r704ck2|r704dk2|r704ek2|
+                                          r704fk2|r704gk2|r704hk2|r704ik2|r704lk2|
+                                          r704mk2)
+            )
+
+data3 <- PODES21_auxvar_3 %>%
+  rename(Kabupaten = r102n) %>%
+  group_by(Kabupaten) %>%
+  summarise(jumlah_desa_sinyal_kuat = sum(r1005c == 1|r1005c == 2),
+            jumlah_desa_sinyal_4G = sum(r1005c == 1)
+            )
+
+data4 <- PODES21_auxvar_4 %>%
+  rename(Kabupaten = r102n) %>%
+  group_by(Kabupaten) %>%
+  summarise(jumlah_korban_bunuh_diri = sum(r1307ak2|r1307ak3),
+            jumlah_korban_pembunuhan = sum(r1307bk2|r1307bk3) #gaada isinya
+  )
+
+```
+
+
 ```{r}
 # Linear Model
 model1 <- lm(formula = APS_Nondis ~ 
