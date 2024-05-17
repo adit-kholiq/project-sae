@@ -5,15 +5,16 @@ date: "`r Sys.Date()`"
 output: html_document
 ---
 
-```{r, message=FALSE}
+```{r, message=FALSE, warning=FALSE}
 # Packages
 library(haven)
 library(dplyr)
 library(readxl)
 library(sae)
+library(msaeDB)
 ```
 
-```{r}
+```{r, message=FALSE, warning=FALSE}
 # Dataset
 data_final <- read_sav("data_final.sav")          # Main Dataset
           
@@ -25,6 +26,8 @@ PODES21_auxvar_3 <- read_sav("PODES21_auxvar_3.sav")       # Podes Dataset 3
 PODES21_auxvar_4 <- read_sav("PODES21_auxvar_4.sav")       # Podes Dataset 4
 
 ```
+
+
 ```{r}
 kode <- unique(PODES21_auxvar_1[,c(3,5)]) %>%
   rename(
@@ -44,9 +47,9 @@ gab <- left_join(kode, data_final[,c(1,3,5)], by = "Kabupaten") %>%
                                      ifelse(RSE_Disab > 0, "RSE 0 - 25 Persen", "RSE 0"))))
     )
 
-View(table(factor(gab$Provinsi),factor(gab$kat_Disab)))
-
+table(factor(gab$Provinsi),factor(gab$kat_Disab))
 ```
+
 
 ```{r}
 # Eksplorasi
@@ -79,6 +82,7 @@ clean <- clean %>%
     jumlah_sekolah_tidak = sum(NON_DISAB_SEKUL == 1)
   )
 ```
+
 
 ```{r}
 data1 <- PODES21_auxvar_1 %>%
@@ -155,6 +159,8 @@ data_merge <- full_join(data_final, data_merge, by = "Kabupaten")
 ```{r}
 data_olah <- data_merge %>%
   mutate(
+    APS_Nondis = APS_Nondis/100,
+    APS_Disab = APS_Disab/100,
     jumlah_desa_aspal = ifelse(is.na(jumlah_desa_aspal),0,jumlah_desa_aspal),
     persen_perkotaan = (jumlah_kota/jumlah_deskel)*100,
     persen_perdesaan = (jumlah_desa/jumlah_deskel)*100,
@@ -165,6 +171,9 @@ data_olah <- data_merge %>%
     Persen_desa_ketinggian_lebih_200 = (desa_ketinggian_lebih_200/jumlah_deskel)*100,
     Persen_desa_ketinggian_kurang_200 = (desa_ketinggian_kurang_200/jumlah_deskel)*100,
     Rasio_bts_luas = jumlah_menara_bts/luas_wilayah,
+    Rasio_desa_kota = jumlah_kota/jumlah_deskel,
+    Rasio_desa_luar_dalam = desa_luar_hutan/desa_dalam_hutan,
+    Rasio_desa_luar_dalam = ifelse(is.infinite(Rasio_desa_luar_dalam),0,Rasio_desa_luar_dalam),
     Rasio_murid_sd = murid_sd/jumlah_sd,
     Rasio_murid_smp = murid_smp/jumlah_smp,
     Rasio_murid_sma = murid_sma/jumlah_sma,
@@ -181,24 +190,25 @@ data_olah
 
 ```{r}
 # Membuat dataset khusus pengolahan
-data_olahan <- data_olah[,-c(1,2,3,6)]
+data_olahan_rasio <- data_olah[,c(4,5,60:70)]
+data_olahan_persen <- data_olah[,c(4,5,52:59)]
+data_olahan_jumlah <- data_olah[,c(4,5,7:12,14:21,23:29,31,34,37:40,42,45,47:49)]
 ```
 
+## Cek Korelasi Data Jumlah
 ```{r}
-# Cek Korelasi
-
 # Membuat data frame kosong
-results <- data.frame(Variable = character(),
+results_jumlah <- data.frame(Variable = character(),
                       Correlation = numeric(),
                       Cutoff = character(),
                       P_Value = numeric(),
                       Decision = character(),
                       stringsAsFactors = FALSE)
 
-# Melakukan iterasi untuk setiap kolom dalam data_olahan
-for (i in 1:(ncol(data_olahan)-1)) {
+# Melakukan iterasi untuk setiap kolom dalam data_olahan_jumlah
+for (i in 1:(ncol(data_olahan_jumlah))) {
   # Menghitung uji korelasi
-  a <- cor.test(x = data_olahan[[i]], y = data_olahan$APS_Disab, method = "pearson")
+  a <- cor.test(x = data_olahan_jumlah[[i]], y = data_olahan_jumlah$APS_Disab, method = "spearman")
   
   # Menentukan keputusan berdasarkan p-value
   cutoff <- ifelse(abs(a$estimate) >= 0.5, "Korelasi >= 0,5", 
@@ -211,7 +221,7 @@ for (i in 1:(ncol(data_olahan)-1)) {
                      ifelse(a$p.value < 0.1,"Signifikan 10 Persen","Tidak Signifikan"))
   
   # Menambahkan hasil ke data frame
-  results <- rbind(results, data.frame(Variable = names(data_olahan)[i],
+  results_jumlah <- rbind(results_jumlah, data.frame(Variable = names(data_olahan_jumlah)[i],
                                        Correlation = a$estimate,
                                        Cutoff = as.factor(cutoff),
                                        P_Value = a$p.value,
@@ -219,64 +229,102 @@ for (i in 1:(ncol(data_olahan)-1)) {
   
 }
 
-rownames(results) <- c(1:63)
-print(results)
+print(results_jumlah)
 ```
 
+## Cek Korelasi Data Rasio
 ```{r}
-results %>%
-  #filter(Cutoff == c("Korelasi >= 0,5", "Korelasi >= 0,3", "Korelasi >= 0,2"))
-  filter(abs(Correlation) >= 0.25)
+# Membuat data frame kosong
+results_rasio <- data.frame(Variable = character(),
+                      Correlation = numeric(),
+                      Cutoff = character(),
+                      P_Value = numeric(),
+                      Decision = character(),
+                      stringsAsFactors = FALSE)
+
+# Melakukan iterasi untuk setiap kolom dalam data_olahan_jumlah
+for (i in 1:(ncol(data_olahan_rasio))) {
+  # Menghitung uji korelasi
+  a <- cor.test(x = data_olahan_rasio[[i]], y = data_olahan_rasio$APS_Disab, method = "spearman")
+  
+  # Menentukan keputusan berdasarkan p-value
+  cutoff <- ifelse(abs(a$estimate) >= 0.5, "Korelasi >= 0,5", 
+                     ifelse(abs(a$estimate) >= 0.3,"Korelasi >= 0,3",
+                            ifelse(abs(a$estimate) >= 0.2,"Korelasi >= 0,2",
+                                   ifelse(abs(a$estimate) >= 0.1,"Korelasi >= 0,1","Korelasi Rendah"))))
+  
+  # Menentukan keputusan berdasarkan p-value
+  decision <- ifelse(a$p.value < 0.05, "Signifikan 5 Persen", 
+                     ifelse(a$p.value < 0.1,"Signifikan 10 Persen","Tidak Signifikan"))
+  
+  # Menambahkan hasil ke data frame
+  results_rasio <- rbind(results_rasio, data.frame(Variable = names(data_olahan_rasio)[i],
+                                       Correlation = a$estimate,
+                                       Cutoff = as.factor(cutoff),
+                                       P_Value = a$p.value,
+                                       Decision = as.factor(decision)))
+  
+}
+
+print(results_rasio)
+```
+
+## Cek Korelasi Data Persen
+```{r}
+# Membuat data frame kosong
+results_persen <- data.frame(Variable = character(),
+                      Correlation = numeric(),
+                      Cutoff = character(),
+                      P_Value = numeric(),
+                      Decision = character(),
+                      stringsAsFactors = FALSE)
+
+# Melakukan iterasi untuk setiap kolom dalam data_olahan_jumlah
+for (i in 1:(ncol(data_olahan_persen))) {
+  # Menghitung uji korelasi
+  a <- cor.test(x = data_olahan_persen[[i]], y = data_olahan_persen$APS_Disab, method = "spearman")
+  
+  # Menentukan keputusan berdasarkan p-value
+  cutoff <- ifelse(abs(a$estimate) >= 0.5, "Korelasi >= 0,5", 
+                     ifelse(abs(a$estimate) >= 0.3,"Korelasi >= 0,3",
+                            ifelse(abs(a$estimate) >= 0.2,"Korelasi >= 0,2",
+                                   ifelse(abs(a$estimate) >= 0.1,"Korelasi >= 0,1","Korelasi Rendah"))))
+  
+  # Menentukan keputusan berdasarkan p-value
+  decision <- ifelse(a$p.value < 0.05, "Signifikan 5 Persen", 
+                     ifelse(a$p.value < 0.1,"Signifikan 10 Persen","Tidak Signifikan"))
+  
+  # Menambahkan hasil ke data frame
+  results_persen <- rbind(results_persen, data.frame(Variable = names(data_olahan_persen)[i],
+                                       Correlation = a$estimate,
+                                       Cutoff = as.factor(cutoff),
+                                       P_Value = a$p.value,
+                                       Decision = as.factor(decision)))
+  
+}
+
+print(results_persen)
 ```
 
 ## EBLUP Disab dengan Package "msaeDB"
 ```{r}
-Disab <- data_olahan[,c(1,2,5,8:16,20:22,24,29:31,40,42,47,51:53,56:58,61,63)] %>%
+data_olahan_persen <- data_olahan_persen %>%
   mutate(
-    APS_Disab = APS_Disab/100,
-    APS_Disab = ifelse(APS_Disab == 1, 0.9999, 
-                       ifelse(APS_Disab == 0, 0.0001, APS_Disab)),
-    jumlah_SKTM = jumlah_SKTM/1000,
+    #APS_Disab = ifelse(APS_Disab == 1, 0.9999, ifelse(APS_Disab == 0, 0.0001, APS_Disab)),
     RSE_Disab = ifelse(RSE_Disab == 0, 0.0001, RSE_Disab),
     VarDir = (APS_Disab*RSE_Disab)^2
     )
 
 
-Disab <- na.omit(Disab)
-Disab <- data.frame(Disab)
 
 # Model dengan semua variabel yang memiliki Korelasi >= 0.2
 Eblup1 <- saefh(formula = list(APS_Disab ~
-                              #keluarga_listrik +
-                              #jumlah_menara_bts +
-                              murid_sd +
-                              #murid_smp +
-                              #murid_sma +
-                              #murid_slb +
-                              #jumlah_sd +
-                              #jumlah_smp +
-                              jumlah_sma +
-                              #desa_dalam_hutan +
-                              #desa_tepi_hutan +
-                              #desa_luar_hutan +
-                              #desa_ketinggian_kurang_200 +
-                              #keluarga_bukan_listrik +
-                              #jumlah_SKTM +
-                              #jumlah_sarana_kesehatan +
-                              #jumlah_desa_tidak_ada_ponsel +
-                              #jumlah_desa_lalu_lintas_lainnya +
-                              #jumlah_korban_bunuh_diri +
-                              #Persen_desa_dalam_hutan +
-                              #Persen_desa_tepi_hutan +
-                              Persen_desa_luar_hutan +
-                              #Rasio_bts_luas +
-                              #Rasio_murid_sd +
-                              #Rasio_murid_smp +
-                              Rasio_nakes_faskes 
-                              #Rasio_angkutan_umum_darat
+                                 Persen_desa_dalam_hutan +
+                                 Persen_desa_tepi_hutan +
+                                 Persen_desa_luar_hutan
                               ),
               vardir = "VarDir",
-              data = Disab)
+              data = data_olahan_persen[-c(5,11,20,22),c(1,2,6:8,11)])
 
 Eblup1$fit$estcoef     # estimasi paramter
 aps_eblupDB <- Eblup1$SAE_Eblup$APS_Disab    # hasil pendugaan tak langsung
@@ -310,7 +358,6 @@ table(factor(gab$Provinsi),factor(gab$kat_Indirect))
 write_sav(compare,"Hasil EBLUP.sav")
 ```
 
-
 ## Uji nomalitas random effect
 ```{r}
 # Uji Normalitas dengan Shapiro-Wilk Test
@@ -321,7 +368,6 @@ tseries::jarque.bera.test(Eblup1$randomEffect$APS_Disab)
 
 ```
 
-
 ```{r}
 ggplot(data = compare, aes(x = 1:28, y = APS.Indirect)) +
   geom_line(aes(y = APS.Indirect, color = "Indirect")) +
@@ -331,8 +377,7 @@ ggplot(data = compare, aes(x = 1:28, y = APS.Indirect)) +
   theme_update()
 ```
 
-
-## Cluster podes
+## Clustering
 ```{r}
 data.clust = scale(data_olahan[, c(10,16,53,58)])
 kmo = function(x)
@@ -392,7 +437,6 @@ data_klaster2$APS_Disab <-  ifelse(is.na(data_klaster2$APS_Disab), 0, data_klast
 data_klaster2$nonsample <- ifelse(data_klaster2$VarDir==0, TRUE, FALSE)
 ```
 
-
 ```{r}
 saeNS <- saefhns(formula=list(APS_Disab ~
                               #keluarga_listrik +
@@ -433,5 +477,95 @@ saeNS$SAE_Eblup_all
 
 ```
 
+```{r}
+compare
+```
 
+
+```{r}
+results %>%
+  #filter(Cutoff == c("Korelasi >= 0,5", "Korelasi >= 0,3", "Korelasi >= 0,2"))
+  filter(abs(Correlation) >= 0.20)
+
+```
+
+
+
+```{r}
+data_olahan_persen <- data_olahan_persen %>%
+  mutate(
+    VarDir = (APS_Disab*RSE_Disab)^2,
+    APS_Disab = ifelse(APS_Disab == 0, 0.0001,
+                       ifelse(APS_Disab == 1, 0.9999, APS_Disab))
+  )
+
+
+hb1 <- saeHB::Beta(formula = APS_Disab ~ 
+                     Persen_desa_dalam_hutan +
+                     Persen_desa_tepi_hutan +
+                     Persen_desa_luar_hutan, 
+            iter.update = 100, 
+            iter.mcmc = 35000, 
+            thin = 25,
+            burn.in = 10000, 
+            data = data_olahan_persen[,c(1,2,6:8,11)])
+
+library(coda)
+plot_konvergen <- function(model){
+  graphics.off()
+  par("mar")
+  par(mar=c(2,2,2,2))
+  plot(model$plot[[3]], col="red")
+  library(coda)
+  autocorr.plot(model$plot[[3]],col="red")
+}
+
+plot_konvergen(hb1)
+```
+
+
+```{r}
+# I
+hb1$coefficient[,-(4:6)]
+coef = as.data.frame(hb5$coefficient[,-(4:6)])
+coef2 = as.data.frame(hb5$coefficient[,-(5:6)])
+write_xlsx(coef, "coef.xlsx")
+write_xlsx(coef2, "coef2.xlsx")
+```
+
+
+```{r}
+# II
+hb1$Est$MEAN
+est_mean = as.data.frame(hb5$Est$MEAN)
+write_xlsx(est_mean, "est_mean.xlsx")
+```
+
+
+```{r}
+# III
+hb1$refVar
+```
+
+
+```{r}
+# IV
+hb5$Est$SD
+est_sd = as.data.frame(hb5$Est$SD)
+write_xlsx(est_sd, "est_sd.xlsx")
+```
+
+
+```{r}
+# V
+rse_hb1<-hb1$Est$SD/hb1$Est$MEAN*100
+rse_dis = as.data.frame(rse_hb1)
+write_xlsx(rse_dis, "rse_dis.xlsx")
+
+# VI
+summary(rse_hb1) # clear, semua RSE < 25%
+
+# VII
+summary(hb1)
+```
 
