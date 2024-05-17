@@ -27,7 +27,7 @@ PODES21_auxvar_4 <- read_sav("PODES21_auxvar_4.sav")       # Podes Dataset 4
 
 ```
 
-
+## Kode
 ```{r}
 kode <- unique(PODES21_auxvar_1[,c(3,5)]) %>%
   rename(
@@ -49,7 +49,6 @@ gab <- left_join(kode, data_final[,c(1,3,5)], by = "Kabupaten") %>%
 
 table(factor(gab$Provinsi),factor(gab$kat_Disab))
 ```
-
 
 ```{r}
 # Eksplorasi
@@ -83,7 +82,7 @@ clean <- clean %>%
   )
 ```
 
-
+## Merge Data Podes
 ```{r}
 data1 <- PODES21_auxvar_1 %>%
   rename(Kabupaten = r102n) %>%
@@ -145,7 +144,6 @@ data4 <- PODES21_auxvar_4 %>%
 
 ```
 
-
 ```{r}
 # Merge Dataset Podes
 data_merge <- full_join(data1, data2, by = "Kabupaten")
@@ -184,15 +182,24 @@ data_olah <- data_merge %>%
     Rasio_simpan_pinjam_lainnya = jumlah_koperasi_simpan_pinjam/jumlah_koperasi_lainnya
   )
 
-data_olah
+data_olah <- left_join(kode, data_olah, by = "Kabupaten")
 ```
 
-
+## Partisi Provinsi
 ```{r}
 # Membuat dataset khusus pengolahan
-data_olahan_rasio <- data_olah[,c(4,5,60:70)]
-data_olahan_persen <- data_olah[,c(4,5,52:59)]
-data_olahan_jumlah <- data_olah[,c(4,5,7:12,14:21,23:29,31,34,37:40,42,45,47:49)]
+data_olahan_rasio <- data_olah[,c(5,6,61:71)]
+data_olahan_persen <- data_olah[,c(5,6,53:60)]
+data_olahan_jumlah <- data_olah[,c(5,6,8:13,15:22,24:30,32,35,38:41,43,46,48:50)]
+
+NTB_data_olahan_rasio <- data_olah[c(1:10),c(5,6,61:71)]
+NTB_data_olahan_persen <- data_olah[c(1:10),c(5,6,53:60)]
+NTB_data_olahan_jumlah <- data_olah[c(1:10),c(5,6,8:13,15:22,24:30,32,35,38:41,43,46,48:50)]
+
+NTT_data_olahan_rasio <- data_olah[c(11:32),c(5,6,61:71)]
+NTT_data_olahan_persen <- data_olah[c(11:32),c(5,6,53:60)]
+NTT_data_olahan_jumlah <- data_olah[c(11:32),c(5,6,8:13,15:22,24:30,32,35,38:41,43,46,48:50)]
+
 ```
 
 ## Cek Korelasi Data Jumlah
@@ -482,15 +489,7 @@ compare
 ```
 
 
-```{r}
-results %>%
-  #filter(Cutoff == c("Korelasi >= 0,5", "Korelasi >= 0,3", "Korelasi >= 0,2"))
-  filter(abs(Correlation) >= 0.20)
-
-```
-
-
-
+## SAE HB Beta
 ```{r}
 data_olahan_persen <- data_olahan_persen %>%
   mutate(
