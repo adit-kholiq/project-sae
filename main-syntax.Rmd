@@ -12,6 +12,7 @@ library(dplyr)
 library(readxl)
 library(sae)
 library(msaeDB)
+library(saens)
 ```
 
 ```{r, message=FALSE, warning=FALSE}
@@ -182,7 +183,8 @@ data_olah <- data_merge %>%
     Rasio_simpan_pinjam_lainnya = jumlah_koperasi_simpan_pinjam/jumlah_koperasi_lainnya
   )
 
-data_olah <- left_join(kode, data_olah, by = "Kabupaten")
+data_olah <- left_join(kode, data_olah, by = "Kabupaten") %>%
+
 ```
 
 ## Partisi Provinsi
@@ -205,30 +207,27 @@ NTT_data_olahan_jumlah <- data_olah[c(11:32),c(5,6,8:13,15:22,24:30,32,35,38:41,
 ## Cek Korelasi Data Jumlah
 ```{r}
 # Membuat data frame kosong
-results_jumlah <- data.frame(Variable = character(),
+NTT_cor_jumlah <- data.frame(Variable = character(),
                       Correlation = numeric(),
                       Cutoff = character(),
                       P_Value = numeric(),
                       Decision = character(),
                       stringsAsFactors = FALSE)
 
-# Melakukan iterasi untuk setiap kolom dalam data_olahan_jumlah
-for (i in 1:(ncol(data_olahan_jumlah))) {
+# Melakukan Pengecekan Korelasi Provinsi NTT - data Jumlah
+for (i in 1:(ncol(NTT_data_olahan_jumlah))) {
   # Menghitung uji korelasi
-  a <- cor.test(x = data_olahan_jumlah[[i]], y = data_olahan_jumlah$APS_Disab, method = "spearman")
+  a <- cor.test(x = NTT_data_olahan_jumlah[[i]], y = NTT_data_olahan_jumlah$APS_Disab, method = "spearman")
   
-  # Menentukan keputusan berdasarkan p-value
   cutoff <- ifelse(abs(a$estimate) >= 0.5, "Korelasi >= 0,5", 
                      ifelse(abs(a$estimate) >= 0.3,"Korelasi >= 0,3",
                             ifelse(abs(a$estimate) >= 0.2,"Korelasi >= 0,2",
                                    ifelse(abs(a$estimate) >= 0.1,"Korelasi >= 0,1","Korelasi Rendah"))))
   
-  # Menentukan keputusan berdasarkan p-value
   decision <- ifelse(a$p.value < 0.05, "Signifikan 5 Persen", 
                      ifelse(a$p.value < 0.1,"Signifikan 10 Persen","Tidak Signifikan"))
   
-  # Menambahkan hasil ke data frame
-  results_jumlah <- rbind(results_jumlah, data.frame(Variable = names(data_olahan_jumlah)[i],
+  NTT_cor_jumlah <- rbind(NTT_cor_jumlah, data.frame(Variable = names(NTT_data_olahan_jumlah)[i],
                                        Correlation = a$estimate,
                                        Cutoff = as.factor(cutoff),
                                        P_Value = a$p.value,
@@ -236,8 +235,21 @@ for (i in 1:(ncol(data_olahan_jumlah))) {
   
 }
 
-print(results_jumlah)
+summary(NTT_cor_jumlah)
 ```
+```{r}
+# Korelasi 0.3 keatas
+car::vif(
+lm(APS_Disab ~ 
+     keluarga_kumuh +
+     desa_luar_hutan +
+     jumlah_SKTM +
+     jumlah_warga_kekurangan_gizi,
+     #jumlah_desa_lalu_lintas_darat,      # Variabel ini multikol
+   data = NTT_data_olahan_jumlah)
+)
+```
+
 
 ## Cek Korelasi Data Rasio
 ```{r}
@@ -313,31 +325,29 @@ for (i in 1:(ncol(data_olahan_persen))) {
 print(results_persen)
 ```
 
-## EBLUP Disab dengan Package "msaeDB"
+## EBLUP APS Disabilitas NTT
 ```{r}
-data_olahan_persen <- data_olahan_persen %>%
+NTT_EBLUP_jumlah <- NTT_data_olahan_jumlah %>%
   mutate(
-    #APS_Disab = ifelse(APS_Disab == 1, 0.9999, ifelse(APS_Disab == 0, 0.0001, APS_Disab)),
-    RSE_Disab = ifelse(RSE_Disab == 0, 0.0001, RSE_Disab),
+    RSE_Disab = ifelse(RSE_Disab == 0, 0.001, RSE_Disab),
     VarDir = (APS_Disab*RSE_Disab)^2
     )
 
-
-
 # Model dengan semua variabel yang memiliki Korelasi >= 0.2
-Eblup1 <- saefh(formula = list(APS_Disab ~
-                                 Persen_desa_dalam_hutan +
-                                 Persen_desa_tepi_hutan +
-                                 Persen_desa_luar_hutan
-                              ),
+NTT_Eblup1 <- eblupfh(formula = APS_Disab ~
+                                     keluarga_kumuh +
+                                     desa_luar_hutan +
+                                     jumlah_SKTM
+                                     #jumlah_warga_kekurangan_gizi
+                              ,
               vardir = "VarDir",
-              data = data_olahan_persen[-c(5,11,20,22),c(1,2,6:8,11)])
+              data = NTT_EBLUP_jumlah[-c(8,11,14,18),])
 
-Eblup1$fit$estcoef     # estimasi paramter
-aps_eblupDB <- Eblup1$SAE_Eblup$APS_Disab    # hasil pendugaan tak langsung
-Eblup1$MSE_Eblup$APS_Disab    # MSE
-Eblup1$randomEffect$APS_Disab # randomeffect
-rse_eblupDB <- sqrt(Eblup1$MSE_Eblup$APS_Disab)/Eblup1$SAE_Eblup$APS_Disab*100    # hasil RSE pendugaan tidak langsung
+NTT_Eblup1$fit$estcoef                       # estimasi paramter
+NTT_Eblup1$df_res$eblup                      # hasil pendugaan tak langsung
+NTT_Eblup1$df_res$mse                        # MSE
+NTT_Eblup1$df_res$random_effect              # randomeffect
+(sqrt(NTT_Eblup1$df_res$mse)/NTT_Eblup1$df_res$eblup*100)    # hasil RSE pendugaan tidak langsung
 ```
 
 ## Perbandingan direct estimation dengan indirect estimmation
@@ -368,13 +378,14 @@ write_sav(compare,"Hasil EBLUP.sav")
 ## Uji nomalitas random effect
 ```{r}
 # Uji Normalitas dengan Shapiro-Wilk Test
-shapiro.test(Eblup1$randomEffect$APS_Disab)
+shapiro.test(NTT_Eblup1$df_res$random_effect)
 
 # Uji Normalitas dengan Jargue-Bera Test
 tseries::jarque.bera.test(Eblup1$randomEffect$APS_Disab)
 
 ```
 
+## Plot Direct-Indirect
 ```{r}
 ggplot(data = compare, aes(x = 1:28, y = APS.Indirect)) +
   geom_line(aes(y = APS.Indirect, color = "Indirect")) +
@@ -386,7 +397,7 @@ ggplot(data = compare, aes(x = 1:28, y = APS.Indirect)) +
 
 ## Clustering
 ```{r}
-data.clust = scale(data_olahan[, c(10,16,53,58)])
+data.clust = scale(NTT_EBLUP_jumlah[,c(6,20,25)])
 kmo = function(x)
 {
   x=subset(data.clust, complete.cases(x))
@@ -403,8 +414,7 @@ kmo = function(x)
 
 kmo(data.clust)
 
-library(REdaS)
-KMOS(data.clust)
+REdaS::KMOS(data.clust)
 
 ```
 
@@ -415,73 +425,36 @@ sill <- fviz_nbclust(data.clust, cluster::pam, method = "silhouette")
 sill
 sill$data
 
-data_olahan <- data_olahan %>%
-  mutate(
-    APS_Disab = APS_Disab/100,
-    VarDir = (APS_Disab*RSE_Disab)^2
-  )
-
-data_klaster <- data_olahan[,c(1,2,10,16,53,58,65)]
+data_klaster <- NTT_EBLUP_jumlah[,c(6,20,25)]
 
 data_klaster <- as.data.frame(data_klaster)
-rownames(data_klaster) <- data_olah$Kabupaten
-
+rownames(data_klaster) <- data_olah[c(11:32),]$Kabupaten
 
 library(cluster)
 
 set.seed(123)
-km_res <- pam(data.clust, 2, nstart = 20)
+km_res <- pam(data.clust, 3, nstart = 20)
 
 data_klaster$cluster <- km_res$cluster
 fviz_cluster(km_res, data = data.clust)
-
 ```
 
 ```{r}
-data_klaster2$cluster <- data_klaster$cluster
-data_klaster2$VarDir <- ifelse(is.na(data_klaster2$VarDir), 0, data_klaster2$VarDir)
-data_klaster2$APS_Disab <-  ifelse(is.na(data_klaster2$APS_Disab), 0, data_klaster2$APS_Disab)
-data_klaster2$nonsample <- ifelse(data_klaster2$VarDir==0, TRUE, FALSE)
+NTT_EBLUP_jumlah$cluster <- data_klaster$cluster
+NTT_EBLUP_jumlah$VarDir <- ifelse(is.na(NTT_EBLUP_jumlah$VarDir), 0, NTT_EBLUP_jumlah$VarDir)
+NTT_EBLUP_jumlah$APS_Disab <-  ifelse(is.na(NTT_EBLUP_jumlah$APS_Disab), 0, NTT_EBLUP_jumlah$APS_Disab)
+NTT_EBLUP_jumlah$nonsample <- ifelse(NTT_EBLUP_jumlah$VarDir==0, TRUE, FALSE)
 ```
 
 ```{r}
-saeNS <- saefhns(formula=list(APS_Disab ~
-                              #keluarga_listrik +
-                              #jumlah_menara_bts +
-                              murid_sd +
-                              #murid_smp +
-                              #murid_sma +
-                              #murid_slb +
-                              #jumlah_sd +
-                              #jumlah_smp +
-                              jumlah_sma +
-                              #desa_dalam_hutan +
-                              #desa_tepi_hutan +
-                              #desa_luar_hutan +
-                              #desa_ketinggian_kurang_200 +
-                              #keluarga_bukan_listrik +
-                              #jumlah_SKTM +
-                              #jumlah_sarana_kesehatan +
-                              #jumlah_desa_tidak_ada_ponsel +
-                              #jumlah_desa_lalu_lintas_lainnya +
-                              #jumlah_korban_bunuh_diri +
-                              #Persen_desa_dalam_hutan +
-                              #Persen_desa_tepi_hutan +
-                              Persen_desa_luar_hutan +
-                              #Rasio_bts_luas +
-                              #Rasio_murid_sd +
-                              Rasio_murid_smp
-                              #Rasio_nakes_faskes 
-                              #Rasio_angkutan_umum_darat
-                              ), 
-                 vardir="VarDir", 
-                 cluster="cluster", 
-                 nonsample = "nonsample", 
-                 data = data_klaster2)
-
-saeNS$MSE_Eblup_all
-saeNS$SAE_Eblup_all
-
+NTT_Eblup1_clust <- eblupfh_cluster(formula = APS_Disab ~
+                                      keluarga_kumuh +
+                                      desa_luar_hutan +
+                                      jumlah_SKTM
+                                    ,
+                                    vardir="VarDir",  
+                                    cluster="cluster", 
+                                    data = NTT_EBLUP_jumlah)
 ```
 
 ```{r}
@@ -491,23 +464,21 @@ compare
 
 ## SAE HB Beta
 ```{r}
-data_olahan_persen <- data_olahan_persen %>%
+NTT_HB_jumlah <- NTT_data_olahan_jumlah %>%
   mutate(
-    VarDir = (APS_Disab*RSE_Disab)^2,
     APS_Disab = ifelse(APS_Disab == 0, 0.0001,
                        ifelse(APS_Disab == 1, 0.9999, APS_Disab))
   )
 
-
 hb1 <- saeHB::Beta(formula = APS_Disab ~ 
-                     Persen_desa_dalam_hutan +
-                     Persen_desa_tepi_hutan +
-                     Persen_desa_luar_hutan, 
-            iter.update = 100, 
-            iter.mcmc = 35000, 
-            thin = 25,
-            burn.in = 10000, 
-            data = data_olahan_persen[,c(1,2,6:8,11)])
+                     keluarga_kumuh +
+                     desa_luar_hutan +
+                     jumlah_SKTM, 
+                   iter.update = 100, 
+                   iter.mcmc = 35000, 
+                   thin = 25,
+                   burn.in = 10000, 
+                   data = NTT_HB_jumlah)
 
 library(coda)
 plot_konvergen <- function(model){
@@ -535,7 +506,7 @@ write_xlsx(coef2, "coef2.xlsx")
 
 ```{r}
 # II
-hb1$Est$MEAN
+hb1$Est
 est_mean = as.data.frame(hb5$Est$MEAN)
 write_xlsx(est_mean, "est_mean.xlsx")
 ```
@@ -549,8 +520,8 @@ hb1$refVar
 
 ```{r}
 # IV
-hb5$Est$SD
-est_sd = as.data.frame(hb5$Est$SD)
+hb1$Est$SD
+est_sd = as.data.frame(hb1$Est$SD)
 write_xlsx(est_sd, "est_sd.xlsx")
 ```
 
@@ -565,6 +536,6 @@ write_xlsx(rse_dis, "rse_dis.xlsx")
 summary(rse_hb1) # clear, semua RSE < 25%
 
 # VII
-summary(hb1)
+summary(hb1$Est$SD/hb1$Est$MEAN*100)
 ```
 
