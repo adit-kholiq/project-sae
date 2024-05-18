@@ -235,17 +235,15 @@ for (i in 1:(ncol(NTT_data_olahan_jumlah))) {
   
 }
 
-summary(NTT_cor_jumlah)
+NTT_cor_jumlah %>%
+  filter(abs(Correlation) >= 0.3)
 ```
 ```{r}
 # Korelasi 0.3 keatas
 car::vif(
 lm(APS_Disab ~ 
      keluarga_kumuh +
-     desa_luar_hutan +
-     jumlah_SKTM +
-     jumlah_warga_kekurangan_gizi,
-     #jumlah_desa_lalu_lintas_darat,      # Variabel ini multikol
+     desa_luar_hutan,      # Variabel ini multikol
    data = NTT_data_olahan_jumlah)
 )
 ```
@@ -333,13 +331,13 @@ NTT_EBLUP_jumlah <- NTT_data_olahan_jumlah %>%
     VarDir = (APS_Disab*RSE_Disab)^2
     )
 
+
+
 # Model dengan semua variabel yang memiliki Korelasi >= 0.2
 NTT_Eblup1 <- eblupfh(formula = APS_Disab ~
                                      keluarga_kumuh +
-                                     desa_luar_hutan +
-                                     jumlah_SKTM
-                                     #jumlah_warga_kekurangan_gizi
-                              ,
+                                     desa_luar_hutan
+                                     ,
               vardir = "VarDir",
               data = NTT_EBLUP_jumlah[-c(8,11,14,18),])
 
@@ -462,7 +460,7 @@ compare
 ```
 
 
-## SAE HB Beta
+## SAE HB Beta NTT
 ```{r}
 NTT_HB_jumlah <- NTT_data_olahan_jumlah %>%
   mutate(
@@ -470,10 +468,22 @@ NTT_HB_jumlah <- NTT_data_olahan_jumlah %>%
                        ifelse(APS_Disab == 1, 0.9999, APS_Disab))
   )
 
+# Menggunakan 4 Variabel
 hb1 <- saeHB::Beta(formula = APS_Disab ~ 
                      keluarga_kumuh +
                      desa_luar_hutan +
-                     jumlah_SKTM, 
+                     jumlah_SKTM +
+                     jumlah_warga_kekurangan_gizi, 
+                   iter.update = 100, 
+                   iter.mcmc = 35000, 
+                   thin = 25,
+                   burn.in = 10000, 
+                   data = NTT_HB_jumlah)
+
+# Menggunakan 2 Variabel
+hb2 <- saeHB::Beta(formula = APS_Disab ~ 
+                     keluarga_kumuh +
+                     desa_luar_hutan, 
                    iter.update = 100, 
                    iter.mcmc = 35000, 
                    thin = 25,
@@ -506,7 +516,7 @@ write_xlsx(coef2, "coef2.xlsx")
 
 ```{r}
 # II
-hb1$Est
+hb1$Est$MEAN
 est_mean = as.data.frame(hb5$Est$MEAN)
 write_xlsx(est_mean, "est_mean.xlsx")
 ```
