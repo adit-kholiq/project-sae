@@ -505,47 +505,16 @@ plot_konvergen(hb1)
 
 
 ```{r}
-# I
+# Cek Koefisien
 hb1$coefficient[,-(4:6)]
-coef = as.data.frame(hb5$coefficient[,-(4:6)])
-coef2 = as.data.frame(hb5$coefficient[,-(5:6)])
-write_xlsx(coef, "coef.xlsx")
-write_xlsx(coef2, "coef2.xlsx")
-```
 
-
-```{r}
-# II
+# Cek Indirect
 hb1$Est$MEAN
-est_mean = as.data.frame(hb5$Est$MEAN)
-write_xlsx(est_mean, "est_mean.xlsx")
-```
 
-
-```{r}
-# III
-hb1$refVar
-```
-
-
-```{r}
-# IV
+# Cek Standar Deviasi
 hb1$Est$SD
-est_sd = as.data.frame(hb1$Est$SD)
-write_xlsx(est_sd, "est_sd.xlsx")
+
+# Cek RSE
+rse_hb1 <- hb1$Est$SD/hb1$Est$MEAN*100
+summary(rse_hb1)
 ```
-
-
-```{r}
-# V
-rse_hb1<-hb1$Est$SD/hb1$Est$MEAN*100
-rse_dis = as.data.frame(rse_hb1)
-write_xlsx(rse_dis, "rse_dis.xlsx")
-
-# VI
-summary(rse_hb1) # clear, semua RSE < 25%
-
-# VII
-summary(hb1$Est$SD/hb1$Est$MEAN*100)
-```
-
