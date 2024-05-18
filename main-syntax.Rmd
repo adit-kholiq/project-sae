@@ -17,14 +17,13 @@ library(saens)
 
 ```{r, message=FALSE, warning=FALSE}
 # Dataset
-data_final <- read_sav("data_final.sav")          # Main Dataset
-          
-data <- read_sav("KOR23GAB_saeProject.sav")     # Predictor Dataset
+data_final <- read_sav("data_final.sav")      # Main Dataset
+data <- read_sav("KOR23GAB_saeProject.sav")   # Predictor Dataset
 
-PODES21_auxvar_1 <- read_sav("PODES21_auxvar_1.sav")       # Podes Dataset 1
-PODES21_auxvar_2 <- read_sav("PODES21_auxvar_2.sav")       # Podes Dataset 2
-PODES21_auxvar_3 <- read_sav("PODES21_auxvar_3.sav")       # Podes Dataset 3
-PODES21_auxvar_4 <- read_sav("PODES21_auxvar_4.sav")       # Podes Dataset 4
+PODES21_auxvar_1 <- read_sav("PODES21_auxvar_1.sav")    # Podes Dataset 1
+PODES21_auxvar_2 <- read_sav("PODES21_auxvar_2.sav")    # Podes Dataset 2
+PODES21_auxvar_3 <- read_sav("PODES21_auxvar_3.sav")    # Podes Dataset 3
+PODES21_auxvar_4 <- read_sav("PODES21_auxvar_4.sav")    # Podes Dataset 4
 
 ```
 
@@ -170,7 +169,6 @@ data_olah <- data_merge %>%
     Persen_desa_ketinggian_lebih_200 = (desa_ketinggian_lebih_200/jumlah_deskel)*100,
     Persen_desa_ketinggian_kurang_200 = (desa_ketinggian_kurang_200/jumlah_deskel)*100,
     Rasio_bts_luas = jumlah_menara_bts/luas_wilayah,
-    Rasio_desa_kota = jumlah_kota/jumlah_deskel,
     Rasio_desa_luar_dalam = desa_luar_hutan/desa_dalam_hutan,
     Rasio_desa_luar_dalam = ifelse(is.infinite(Rasio_desa_luar_dalam),0,Rasio_desa_luar_dalam),
     Rasio_murid_sd = murid_sd/jumlah_sd,
@@ -179,32 +177,31 @@ data_olah <- data_merge %>%
     Rasio_murid_slb = murid_slb/jumlah_slb,
     Rasio_nakes_faskes = jumlah_tenaga_kesehatan/jumlah_faskes,
     Rasio_aspal_darat = jumlah_desa_aspal/jumlah_desa_lalu_lintas_darat,
-    Rasio_angkutan_umum_darat = jumlah_desa_angkutan_umum/jumlah_desa_lalu_lintas_darat,
-    Rasio_simpan_pinjam_lainnya = jumlah_koperasi_simpan_pinjam/jumlah_koperasi_lainnya
-  )
+    Rasio_angkutan_umum_darat = jumlah_desa_angkutan_umum/jumlah_desa_lalu_lintas_darat
+    )
 
-data_olah <- left_join(kode, data_olah, by = "Kabupaten") %>%
+data_olah <- left_join(kode, data_olah, by = "Kabupaten")
 
 ```
 
 ## Partisi Provinsi
 ```{r}
 # Membuat dataset khusus pengolahan
-data_olahan_rasio <- data_olah[,c(5,6,61:71)]
+data_olahan_rasio <- data_olah[,c(5,6,61:69)]
 data_olahan_persen <- data_olah[,c(5,6,53:60)]
 data_olahan_jumlah <- data_olah[,c(5,6,8:13,15:22,24:30,32,35,38:41,43,46,48:50)]
 
-NTB_data_olahan_rasio <- data_olah[c(1:10),c(5,6,61:71)]
+NTB_data_olahan_rasio <- data_olah[c(1:10),c(5,6,61:69)]
 NTB_data_olahan_persen <- data_olah[c(1:10),c(5,6,53:60)]
 NTB_data_olahan_jumlah <- data_olah[c(1:10),c(5,6,8:13,15:22,24:30,32,35,38:41,43,46,48:50)]
 
-NTT_data_olahan_rasio <- data_olah[c(11:32),c(5,6,61:71)]
+NTT_data_olahan_rasio <- data_olah[c(11:32),c(5,6,61:69)]
 NTT_data_olahan_persen <- data_olah[c(11:32),c(5,6,53:60)]
 NTT_data_olahan_jumlah <- data_olah[c(11:32),c(5,6,8:13,15:22,24:30,32,35,38:41,43,46,48:50)]
 
 ```
 
-## Cek Korelasi Data Jumlah
+## Cek Korelasi Data Jumlah (NTT)
 ```{r}
 # Membuat data frame kosong
 NTT_cor_jumlah <- data.frame(Variable = character(),
@@ -348,31 +345,6 @@ NTT_Eblup1$df_res$random_effect              # randomeffect
 (sqrt(NTT_Eblup1$df_res$mse)/NTT_Eblup1$df_res$eblup*100)    # hasil RSE pendugaan tidak langsung
 ```
 
-## Perbandingan direct estimation dengan indirect estimmation
-```{r}
-compare <- data.frame(na.omit(data_merge[,c(1,5)]), 
-                      APS_Direct = aps_eblupDB,
-                      RSE_Indirect = rse_eblupDB, 
-                      APS_Indirect = aps_eblupDB) %>%
-  rename(RSE_Direct = RSE_Disab)
-
-summary(compare)
-
-gab <- left_join(kode, compare, by = "Kabupaten") %>%
-  mutate(
-    kat_Direct = ifelse(RSE_Direct >= 50, "Lebih dari 50 Persen",
-                        ifelse(RSE_Direct >= 25, "RSE 25 - 50 Persen",
-                               ifelse(RSE_Direct > 0, "RSE 0 - 25 Persen", "RSE 0"))),
-    kat_Indirect = ifelse(RSE_Indirect >= 50, "Lebih dari 50 Persen",
-                        ifelse(RSE_Indirect >= 25, "RSE 25 - 50 Persen",
-                               ifelse(RSE_Indirect > 0, "RSE 0 - 25 Persen", "RSE 0"))),
-    )
-
-table(factor(gab$Provinsi),factor(gab$kat_Indirect))
-
-write_sav(compare,"Hasil EBLUP.sav")
-```
-
 ## Uji nomalitas random effect
 ```{r}
 # Uji Normalitas dengan Shapiro-Wilk Test
@@ -381,16 +353,6 @@ shapiro.test(NTT_Eblup1$df_res$random_effect)
 # Uji Normalitas dengan Jargue-Bera Test
 tseries::jarque.bera.test(Eblup1$randomEffect$APS_Disab)
 
-```
-
-## Plot Direct-Indirect
-```{r}
-ggplot(data = compare, aes(x = 1:28, y = APS.Indirect)) +
-  geom_line(aes(y = APS.Indirect, color = "Indirect")) +
-  geom_line(aes(y = APS.Direct, color = "Direct")) +
-  labs(y = "Estimation",
-       x = "ID") +
-  theme_update()
 ```
 
 ## Clustering
@@ -503,7 +465,7 @@ plot_konvergen <- function(model){
 plot_konvergen(hb1)
 ```
 
-
+## Pengecekan Hasil SAE HB
 ```{r}
 # Cek Koefisien
 hb1$coefficient[,-(4:6)]
@@ -515,6 +477,49 @@ hb1$Est$MEAN
 hb1$Est$SD
 
 # Cek RSE
-rse_hb1 <- hb1$Est$SD/hb1$Est$MEAN*100
-summary(rse_hb1)
+rse_hb2 <- hb2$Est$SD/hb2$Est$MEAN*100
+summary(rse_hb2)
+```
+
+## SAE HB Beta NTB
+```{r}
+NTB_HB_jumlah <- NTB_data_olahan_jumlah %>%
+  mutate(
+    APS_Disab = ifelse(APS_Disab == 0, 0.0001,
+                       ifelse(APS_Disab == 1, 0.9999, APS_Disab))
+  )
+
+# Menggunakan 4 Variabel
+hb1 <- saeHB::Beta(formula = APS_Disab ~ 
+                     keluarga_kumuh +
+                     desa_luar_hutan +
+                     jumlah_SKTM +
+                     jumlah_warga_kekurangan_gizi, 
+                   iter.update = 100, 
+                   iter.mcmc = 35000, 
+                   thin = 25,
+                   burn.in = 10000, 
+                   data = NTT_HB_jumlah)
+
+# Menggunakan 2 Variabel
+hb2 <- saeHB::Beta(formula = APS_Disab ~ 
+                     keluarga_kumuh +
+                     desa_luar_hutan, 
+                   iter.update = 100, 
+                   iter.mcmc = 35000, 
+                   thin = 25,
+                   burn.in = 10000, 
+                   data = NTT_HB_jumlah)
+
+library(coda)
+plot_konvergen <- function(model){
+  graphics.off()
+  par("mar")
+  par(mar=c(2,2,2,2))
+  plot(model$plot[[3]], col="red")
+  library(coda)
+  autocorr.plot(model$plot[[3]],col="red")
+}
+
+plot_konvergen(hb1)
 ```
