@@ -13,8 +13,11 @@ library(readxl)
 library(sae)
 library(msaeDB)
 library(saens)
+library(coda)
 ```
 
+# DATASET
+## Import Dataset
 ```{r, message=FALSE, warning=FALSE}
 # Dataset
 data_final <- read_sav("data_final.sav")      # Main Dataset
@@ -27,27 +30,13 @@ PODES21_auxvar_4 <- read_sav("PODES21_auxvar_4.sav")    # Podes Dataset 4
 
 ```
 
-## Kode
+## Kode Variable
 ```{r}
 kode <- unique(PODES21_auxvar_1[,c(3,5)]) %>%
   rename(
     Provinsi = r101n,
     Kabupaten = r102n
   )
-
-gab <- left_join(kode, data_final[,c(1,3,5)], by = "Kabupaten") %>%
-  mutate(
-    kat_Nondis = ifelse(is.na(RSE_Nondis), "NA",
-                        ifelse(RSE_Nondis >= 50, "Lebih dari 50 Persen",
-                               ifelse(RSE_Nondis >= 25, "RSE 25 - 50 Persen",
-                                      ifelse(RSE_Nondis > 0, "RSE 0 - 25 Persen", "RSE 0")))),
-    kat_Disab = ifelse(is.na(RSE_Disab), "NA",
-                       ifelse(RSE_Disab >= 50, "Lebih dari 50 Persen",
-                              ifelse(RSE_Disab >= 25, "RSE 25 - 50 Persen",
-                                     ifelse(RSE_Disab > 0, "RSE 0 - 25 Persen", "RSE 0"))))
-    )
-
-table(factor(gab$Provinsi),factor(gab$kat_Disab))
 ```
 
 ```{r}
@@ -144,6 +133,7 @@ data4 <- PODES21_auxvar_4 %>%
 
 ```
 
+
 ```{r}
 # Merge Dataset Podes
 data_merge <- full_join(data1, data2, by = "Kabupaten")
@@ -184,27 +174,19 @@ data_olah <- left_join(kode, data_olah, by = "Kabupaten")
 
 ```
 
-## Partisi Provinsi
+## Partisi Dataset
 ```{r}
 # Membuat dataset khusus pengolahan
 data_olahan_rasio <- data_olah[,c(5,6,61:69)]
 data_olahan_persen <- data_olah[,c(5,6,53:60)]
 data_olahan_jumlah <- data_olah[,c(5,6,8:13,15:22,24:30,32,35,38:41,43,46,48:50)]
-
-NTB_data_olahan_rasio <- data_olah[c(1:10),c(5,6,61:69)]
-NTB_data_olahan_persen <- data_olah[c(1:10),c(5,6,53:60)]
-NTB_data_olahan_jumlah <- data_olah[c(1:10),c(5,6,8:13,15:22,24:30,32,35,38:41,43,46,48:50)]
-
-NTT_data_olahan_rasio <- data_olah[c(11:32),c(5,6,61:69)]
-NTT_data_olahan_persen <- data_olah[c(11:32),c(5,6,53:60)]
-NTT_data_olahan_jumlah <- data_olah[c(11:32),c(5,6,8:13,15:22,24:30,32,35,38:41,43,46,48:50)]
-
 ```
 
-## Cek Korelasi Data Jumlah (NTT)
+# DATA JUMLAH
+## Cek Korelasi Data Jumlah
 ```{r}
 # Membuat data frame kosong
-NTT_cor_jumlah <- data.frame(Variable = character(),
+cor_jumlah <- data.frame(Variable = character(),
                       Correlation = numeric(),
                       Cutoff = character(),
                       P_Value = numeric(),
@@ -212,9 +194,9 @@ NTT_cor_jumlah <- data.frame(Variable = character(),
                       stringsAsFactors = FALSE)
 
 # Melakukan Pengecekan Korelasi Provinsi NTT - data Jumlah
-for (i in 1:(ncol(NTT_data_olahan_jumlah))) {
+for (i in 1:(ncol(data_olahan_jumlah))) {
   # Menghitung uji korelasi
-  a <- cor.test(x = NTT_data_olahan_jumlah[[i]], y = NTT_data_olahan_jumlah$APS_Disab, method = "spearman")
+  a <- cor.test(x = data_olahan_jumlah[[i]], y = data_olahan_jumlah$APS_Disab, method = "spearman")
   
   cutoff <- ifelse(abs(a$estimate) >= 0.5, "Korelasi >= 0,5", 
                      ifelse(abs(a$estimate) >= 0.3,"Korelasi >= 0,3",
@@ -224,7 +206,7 @@ for (i in 1:(ncol(NTT_data_olahan_jumlah))) {
   decision <- ifelse(a$p.value < 0.05, "Signifikan 5 Persen", 
                      ifelse(a$p.value < 0.1,"Signifikan 10 Persen","Tidak Signifikan"))
   
-  NTT_cor_jumlah <- rbind(NTT_cor_jumlah, data.frame(Variable = names(NTT_data_olahan_jumlah)[i],
+  cor_jumlah <- rbind(cor_jumlah, data.frame(Variable = names(data_olahan_jumlah)[i],
                                        Correlation = a$estimate,
                                        Cutoff = as.factor(cutoff),
                                        P_Value = a$p.value,
@@ -232,294 +214,399 @@ for (i in 1:(ncol(NTT_data_olahan_jumlah))) {
   
 }
 
-NTT_cor_jumlah %>%
-  filter(abs(Correlation) >= 0.3)
+cor_jumlah %>%
+  filter(abs(Correlation) >= 0.15)
 ```
+
+## Cek Multikolinearitas
 ```{r}
-# Korelasi 0.3 keatas
+# Korelasi 0.25 keatas
 car::vif(
 lm(APS_Disab ~ 
-     keluarga_kumuh +
-     desa_luar_hutan,      # Variabel ini multikol
-   data = NTT_data_olahan_jumlah)
+     keluarga_listrik +
+     jumlah_SKTM,      # Variabel ini multikol
+   data = data_olahan_jumlah)
+)
+
+# Korelasi 0.2 keatas
+car::vif(
+lm(APS_Disab ~ 
+     keluarga_listrik +
+     desa_tepi_hutan +
+     jumlah_SKTM,      # Variabel ini multikol
+   data = data_olahan_jumlah)
 )
 ```
 
-
-## Cek Korelasi Data Rasio
+## EBLUP APS Disabilitas
 ```{r}
-# Membuat data frame kosong
-results_rasio <- data.frame(Variable = character(),
-                      Correlation = numeric(),
-                      Cutoff = character(),
-                      P_Value = numeric(),
-                      Decision = character(),
-                      stringsAsFactors = FALSE)
-
-# Melakukan iterasi untuk setiap kolom dalam data_olahan_jumlah
-for (i in 1:(ncol(data_olahan_rasio))) {
-  # Menghitung uji korelasi
-  a <- cor.test(x = data_olahan_rasio[[i]], y = data_olahan_rasio$APS_Disab, method = "spearman")
-  
-  # Menentukan keputusan berdasarkan p-value
-  cutoff <- ifelse(abs(a$estimate) >= 0.5, "Korelasi >= 0,5", 
-                     ifelse(abs(a$estimate) >= 0.3,"Korelasi >= 0,3",
-                            ifelse(abs(a$estimate) >= 0.2,"Korelasi >= 0,2",
-                                   ifelse(abs(a$estimate) >= 0.1,"Korelasi >= 0,1","Korelasi Rendah"))))
-  
-  # Menentukan keputusan berdasarkan p-value
-  decision <- ifelse(a$p.value < 0.05, "Signifikan 5 Persen", 
-                     ifelse(a$p.value < 0.1,"Signifikan 10 Persen","Tidak Signifikan"))
-  
-  # Menambahkan hasil ke data frame
-  results_rasio <- rbind(results_rasio, data.frame(Variable = names(data_olahan_rasio)[i],
-                                       Correlation = a$estimate,
-                                       Cutoff = as.factor(cutoff),
-                                       P_Value = a$p.value,
-                                       Decision = as.factor(decision)))
-  
-}
-
-print(results_rasio)
-```
-
-## Cek Korelasi Data Persen
-```{r}
-# Membuat data frame kosong
-results_persen <- data.frame(Variable = character(),
-                      Correlation = numeric(),
-                      Cutoff = character(),
-                      P_Value = numeric(),
-                      Decision = character(),
-                      stringsAsFactors = FALSE)
-
-# Melakukan iterasi untuk setiap kolom dalam data_olahan_jumlah
-for (i in 1:(ncol(data_olahan_persen))) {
-  # Menghitung uji korelasi
-  a <- cor.test(x = data_olahan_persen[[i]], y = data_olahan_persen$APS_Disab, method = "spearman")
-  
-  # Menentukan keputusan berdasarkan p-value
-  cutoff <- ifelse(abs(a$estimate) >= 0.5, "Korelasi >= 0,5", 
-                     ifelse(abs(a$estimate) >= 0.3,"Korelasi >= 0,3",
-                            ifelse(abs(a$estimate) >= 0.2,"Korelasi >= 0,2",
-                                   ifelse(abs(a$estimate) >= 0.1,"Korelasi >= 0,1","Korelasi Rendah"))))
-  
-  # Menentukan keputusan berdasarkan p-value
-  decision <- ifelse(a$p.value < 0.05, "Signifikan 5 Persen", 
-                     ifelse(a$p.value < 0.1,"Signifikan 10 Persen","Tidak Signifikan"))
-  
-  # Menambahkan hasil ke data frame
-  results_persen <- rbind(results_persen, data.frame(Variable = names(data_olahan_persen)[i],
-                                       Correlation = a$estimate,
-                                       Cutoff = as.factor(cutoff),
-                                       P_Value = a$p.value,
-                                       Decision = as.factor(decision)))
-  
-}
-
-print(results_persen)
-```
-
-## EBLUP APS Disabilitas NTT
-```{r}
-NTT_EBLUP_jumlah <- NTT_data_olahan_jumlah %>%
+EBLUP_jumlah <- data_olahan_jumlah %>%
   mutate(
     RSE_Disab = ifelse(RSE_Disab == 0, 0.001, RSE_Disab),
     VarDir = (APS_Disab*RSE_Disab)^2
     )
 
+# Model dengan semua variabel yang memiliki Korelasi >= 0.25
+Eblup1 <- eblupfh(formula = APS_Disab ~
+                        keluarga_listrik +
+                        desa_tepi_hutan +
+                        jumlah_SKTM,
+                  vardir = "VarDir",
+                  data = EBLUP_jumlah[-c(18,21,24,28),])
 
-
-# Model dengan semua variabel yang memiliki Korelasi >= 0.2
-NTT_Eblup1 <- eblupfh(formula = APS_Disab ~
-                                     keluarga_kumuh +
-                                     desa_luar_hutan
-                                     ,
-              vardir = "VarDir",
-              data = NTT_EBLUP_jumlah[-c(8,11,14,18),])
-
-NTT_Eblup1$fit$estcoef                       # estimasi paramter
-NTT_Eblup1$df_res$eblup                      # hasil pendugaan tak langsung
-NTT_Eblup1$df_res$mse                        # MSE
-NTT_Eblup1$df_res$random_effect              # randomeffect
-(sqrt(NTT_Eblup1$df_res$mse)/NTT_Eblup1$df_res$eblup*100)    # hasil RSE pendugaan tidak langsung
+Eblup1$fit$estcoef                                   # estimasi paramter
+Eblup1$df_res$eblup                                  # hasil pendugaan tak langsung
+Eblup1$df_res$mse                                    # MSE
+Eblup1$df_res$random_effect                          # randomeffect
+(sqrt(Eblup1$df_res$mse)/Eblup1$df_res$eblup*100)    # hasil RSE pendugaan tidak langsung
 ```
 
-## Uji nomalitas random effect
+## SAE HB Beta APS Disabilitas
 ```{r}
-# Uji Normalitas dengan Shapiro-Wilk Test
-shapiro.test(NTT_Eblup1$df_res$random_effect)
-
-# Uji Normalitas dengan Jargue-Bera Test
-tseries::jarque.bera.test(Eblup1$randomEffect$APS_Disab)
-
-```
-
-## Clustering
-```{r}
-data.clust = scale(NTT_EBLUP_jumlah[,c(6,20,25)])
-kmo = function(x)
-{
-  x=subset(data.clust, complete.cases(x))
-  r=cor(data.clust)
-  r2= r^2
-  i=solve(r)
-  d=diag(i)
-  p2= (-i/sqrt(outer(d,d)))^2
-  diag(r2) <-  diag(p2) <- 0
-  KMO <- sum(r2)/(sum(r2)+sum(p2))
-  MSA <- colSums(r2)/(colSums(r2)+colSums(p2))
-  return(list(KMO=KMO, MSA=MSA))
-}
-
-kmo(data.clust)
-
-REdaS::KMOS(data.clust)
-
-```
-
-```{r}
-# Menentukan jumlah Cluster Terbaik
-library(factoextra)
-sill <- fviz_nbclust(data.clust, cluster::pam, method = "silhouette")
-sill
-sill$data
-
-data_klaster <- NTT_EBLUP_jumlah[,c(6,20,25)]
-
-data_klaster <- as.data.frame(data_klaster)
-rownames(data_klaster) <- data_olah[c(11:32),]$Kabupaten
-
-library(cluster)
-
 set.seed(123)
-km_res <- pam(data.clust, 3, nstart = 20)
 
-data_klaster$cluster <- km_res$cluster
-fviz_cluster(km_res, data = data.clust)
-```
-
-```{r}
-NTT_EBLUP_jumlah$cluster <- data_klaster$cluster
-NTT_EBLUP_jumlah$VarDir <- ifelse(is.na(NTT_EBLUP_jumlah$VarDir), 0, NTT_EBLUP_jumlah$VarDir)
-NTT_EBLUP_jumlah$APS_Disab <-  ifelse(is.na(NTT_EBLUP_jumlah$APS_Disab), 0, NTT_EBLUP_jumlah$APS_Disab)
-NTT_EBLUP_jumlah$nonsample <- ifelse(NTT_EBLUP_jumlah$VarDir==0, TRUE, FALSE)
-```
-
-```{r}
-NTT_Eblup1_clust <- eblupfh_cluster(formula = APS_Disab ~
-                                      keluarga_kumuh +
-                                      desa_luar_hutan +
-                                      jumlah_SKTM
-                                    ,
-                                    vardir="VarDir",  
-                                    cluster="cluster", 
-                                    data = NTT_EBLUP_jumlah)
-```
-
-```{r}
-compare
-```
-
-
-## SAE HB Beta NTT
-```{r}
-NTT_HB_jumlah <- NTT_data_olahan_jumlah %>%
+HB_jumlah <- data_olahan_jumlah %>%
   mutate(
     APS_Disab = ifelse(APS_Disab == 0, 0.0001,
                        ifelse(APS_Disab == 1, 0.9999, APS_Disab))
   )
 
-# Menggunakan 4 Variabel
-hb1 <- saeHB::Beta(formula = APS_Disab ~ 
-                     keluarga_kumuh +
-                     desa_luar_hutan +
-                     jumlah_SKTM +
-                     jumlah_warga_kekurangan_gizi, 
+# Menggunakan Cutoff Korelasi >= 0.2
+HB1 <- saeHB::Beta(formula = APS_Disab ~ 
+                     keluarga_listrik +
+                     desa_tepi_hutan +
+                     jumlah_SKTM, 
                    iter.update = 100, 
-                   iter.mcmc = 35000, 
+                   iter.mcmc = 50000, 
                    thin = 25,
                    burn.in = 10000, 
-                   data = NTT_HB_jumlah)
+                   data = HB_jumlah)
 
-# Menggunakan 2 Variabel
-hb2 <- saeHB::Beta(formula = APS_Disab ~ 
-                     keluarga_kumuh +
-                     desa_luar_hutan, 
+# Menggunakan Cutoff Korelasi >= 0.25
+HB2 <- saeHB::Beta(formula = APS_Disab ~
+                     keluarga_listrik +
+                     jumlah_SKTM, 
                    iter.update = 100, 
-                   iter.mcmc = 35000, 
+                   iter.mcmc = 50000, 
                    thin = 25,
                    burn.in = 10000, 
-                   data = NTT_HB_jumlah)
+                   data = HB_jumlah)
 
-library(coda)
-plot_konvergen <- function(model){
-  graphics.off()
-  par("mar")
-  par(mar=c(2,2,2,2))
-  plot(model$plot[[3]], col="red")
-  library(coda)
-  autocorr.plot(model$plot[[3]],col="red")
-}
-
-plot_konvergen(hb1)
 ```
 
 ## Pengecekan Hasil SAE HB
 ```{r}
 # Cek Koefisien
-hb1$coefficient[,-(4:6)]
+HB1$coefficient[,-(4:6)]
 
 # Cek Indirect
-hb1$Est$MEAN
+HB1$Est$MEAN
 
 # Cek Standar Deviasi
-hb1$Est$SD
+HB1$Est$SD
 
 # Cek RSE
-rse_hb2 <- hb2$Est$SD/hb2$Est$MEAN*100
-summary(rse_hb2)
+summary(
+  as.data.frame(HB1$Est$SD/HB1$Est$MEAN*100) %>%
+  mutate(
+    RSE = as.factor(ifelse(HB1$Est$SD/HB1$Est$MEAN*100 >= 50, ">=50%",
+                           ifelse(HB1$Est$SD/HB1$Est$MEAN*100 >= 25, ">=25%",
+                                  "<25%")))
+    )
+)
+  
 ```
 
-## SAE HB Beta NTB
 ```{r}
-NTB_HB_jumlah <- NTB_data_olahan_jumlah %>%
+# Cek Koefisien
+HB2$coefficient[,-(4:6)]
+
+# Cek Indirect
+HB2$Est$MEAN
+
+# Cek Standar Deviasi
+HB2$Est$SD
+
+# Cek RSE
+summary(
+  as.data.frame(HB2$Est$SD/HB2$Est$MEAN*100) %>%
+  mutate(
+    RSE = as.factor(ifelse(HB2$Est$SD/HB2$Est$MEAN*100 >= 50, ">=50%",
+                           ifelse(HB2$Est$SD/HB2$Est$MEAN*100 >= 25, ">=25%",
+                                  "<25%")))
+    )
+)
+```
+
+# DATA RASIO
+## Cek Korelasi Data Rasio
+```{r}
+# Membuat data frame kosong
+cor_rasio <- data.frame(Variable = character(),
+                      Correlation = numeric(),
+                      Cutoff = character(),
+                      P_Value = numeric(),
+                      Decision = character(),
+                      stringsAsFactors = FALSE)
+
+# Melakukan Pengecekan Korelasi Provinsi NTT - data Jumlah
+for (i in 1:(ncol(data_olahan_rasio))) {
+  # Menghitung uji korelasi
+  a <- cor.test(x = data_olahan_rasio[[i]], y = data_olahan_rasio$APS_Disab, method = "spearman")
+  
+  cutoff <- ifelse(abs(a$estimate) >= 0.5, "Korelasi >= 0,5", 
+                     ifelse(abs(a$estimate) >= 0.3,"Korelasi >= 0,3",
+                            ifelse(abs(a$estimate) >= 0.2,"Korelasi >= 0,2",
+                                   ifelse(abs(a$estimate) >= 0.1,"Korelasi >= 0,1","Korelasi Rendah"))))
+  
+  decision <- ifelse(a$p.value < 0.05, "Signifikan 5 Persen", 
+                     ifelse(a$p.value < 0.1,"Signifikan 10 Persen","Tidak Signifikan"))
+  
+  cor_rasio <- rbind(cor_rasio, data.frame(Variable = names(data_olahan_rasio)[i],
+                                       Correlation = a$estimate,
+                                       Cutoff = as.factor(cutoff),
+                                       P_Value = a$p.value,
+                                       Decision = as.factor(decision)))
+  
+}
+
+cor_rasio %>%
+  filter(abs(Correlation) >= 0.20)
+```
+
+## Cek Multikolinearitas
+```{r}
+# Korelasi 0.15 keatas
+car::vif(
+lm(APS_Disab ~ 
+     Rasio_murid_smp +
+     Rasio_nakes_faskes +
+     Rasio_angkutan_umum_darat,
+   data = data_olahan_rasio)
+)
+
+# Korelasi 0.2 keatas
+car::vif(
+lm(APS_Disab ~ 
+     Rasio_murid_smp +
+     Rasio_angkutan_umum_darat,
+   data = data_olahan_rasio)
+)
+```
+
+## EBLUP APS Disabilitas
+```{r}
+EBLUP_rasio <- data_olahan_rasio %>%
+  mutate(
+    RSE_Disab = ifelse(RSE_Disab == 0, 0.001, RSE_Disab),
+    VarDir = (APS_Disab*RSE_Disab)^2
+    )
+
+# Model dengan semua variabel yang memiliki Korelasi >= 0.25
+Eblup2 <- eblupfh(formula = APS_Disab ~
+                        Rasio_murid_smp +
+                        Rasio_angkutan_umum_darat,
+                  vardir = "VarDir",
+                  data = EBLUP_rasio[-c(18,21,24,28),],
+                  method = "REML")
+
+Eblup2$fit$estcoef                                   # estimasi paramter
+Eblup2$df_res$eblup                                  # hasil pendugaan tak langsung
+Eblup2$df_res$mse                                    # MSE
+Eblup2$df_res$random_effect                          # randomeffect
+(sqrt(Eblup2$df_res$mse)/Eblup2$df_res$eblup*100)    # hasil RSE pendugaan tidak langsung
+```
+
+## SAE HB Beta APS Disabilitas
+```{r}
+set.seed(123)
+
+HB_rasio <- data_olahan_rasio %>%
   mutate(
     APS_Disab = ifelse(APS_Disab == 0, 0.0001,
                        ifelse(APS_Disab == 1, 0.9999, APS_Disab))
   )
 
-# Menggunakan 4 Variabel
-hb1 <- saeHB::Beta(formula = APS_Disab ~ 
-                     keluarga_kumuh +
-                     desa_luar_hutan +
-                     jumlah_SKTM +
-                     jumlah_warga_kekurangan_gizi, 
+# Menggunakan Cutoff Korelasi >= 0.15
+HB3 <- saeHB::Beta(formula = APS_Disab ~ 
+                     Rasio_murid_smp +
+                     Rasio_angkutan_umum_darat, 
                    iter.update = 100, 
-                   iter.mcmc = 35000, 
+                   iter.mcmc = 50000, 
                    thin = 25,
                    burn.in = 10000, 
-                   data = NTT_HB_jumlah)
+                   data = HB_rasio)
 
-# Menggunakan 2 Variabel
-hb2 <- saeHB::Beta(formula = APS_Disab ~ 
-                     keluarga_kumuh +
-                     desa_luar_hutan, 
+# Menggunakan Cutoff Korelasi >= 0.2
+HB4 <- saeHB::Beta(formula = APS_Disab ~
+                     Rasio_murid_smp +
+                     Rasio_nakes_faskes +
+                     Rasio_angkutan_umum_darat, 
                    iter.update = 100, 
-                   iter.mcmc = 35000, 
+                   iter.mcmc = 50000, 
                    thin = 25,
                    burn.in = 10000, 
-                   data = NTT_HB_jumlah)
+                   data = HB_rasio)
 
-library(coda)
-plot_konvergen <- function(model){
-  graphics.off()
-  par("mar")
-  par(mar=c(2,2,2,2))
-  plot(model$plot[[3]], col="red")
-  library(coda)
-  autocorr.plot(model$plot[[3]],col="red")
+```
+
+## Pengecekan Hasil SAE HB
+```{r}
+# Cek Koefisien
+HB3$coefficient[,-(4:6)]
+
+# Cek Indirect
+HB3$Est$MEAN
+
+# Cek Standar Deviasi
+HB3$Est$SD
+
+# Cek RSE
+summary(
+  as.data.frame(HB3$Est$SD/HB3$Est$MEAN*100) %>%
+  mutate(
+    RSE = as.factor(ifelse(HB3$Est$SD/HB3$Est$MEAN*100 >= 50, ">=50%",
+                           ifelse(HB3$Est$SD/HB3$Est$MEAN*100 >= 25, ">=25%",
+                                  "<25%")))
+    )
+)
+  
+```
+
+```{r}
+# Cek Koefisien
+HB4$coefficient[,-(4:6)]
+
+# Cek Indirect
+HB4$Est$MEAN
+
+# Cek Standar Deviasi
+HB4$Est$SD
+
+# Cek RSE
+summary(
+  as.data.frame(HB4$Est$SD/HB4$Est$MEAN*100) %>%
+  mutate(
+    RSE = as.factor(ifelse(HB4$Est$SD/HB4$Est$MEAN*100 >= 50, ">=50%",
+                           ifelse(HB4$Est$SD/HB4$Est$MEAN*100 >= 25, ">=25%",
+                                  "<25%")))
+    )
+)
+```
+
+
+# DATA PERSEN
+## Cek Korelasi Data Persen
+```{r}
+# Membuat data frame kosong
+cor_persen <- data.frame(Variable = character(),
+                      Correlation = numeric(),
+                      Cutoff = character(),
+                      P_Value = numeric(),
+                      Decision = character(),
+                      stringsAsFactors = FALSE)
+
+# Melakukan Pengecekan Korelasi Provinsi NTT - data Jumlah
+for (i in 1:(ncol(data_olahan_persen))) {
+  # Menghitung uji korelasi
+  a <- cor.test(x = data_olahan_persen[[i]], y = data_olahan_persen$APS_Disab, method = "spearman")
+  
+  cutoff <- ifelse(abs(a$estimate) >= 0.5, "Korelasi >= 0,5", 
+                     ifelse(abs(a$estimate) >= 0.3,"Korelasi >= 0,3",
+                            ifelse(abs(a$estimate) >= 0.2,"Korelasi >= 0,2",
+                                   ifelse(abs(a$estimate) >= 0.1,"Korelasi >= 0,1","Korelasi Rendah"))))
+  
+  decision <- ifelse(a$p.value < 0.05, "Signifikan 5 Persen", 
+                     ifelse(a$p.value < 0.1,"Signifikan 10 Persen","Tidak Signifikan"))
+  
+  cor_persen <- rbind(cor_persen, data.frame(Variable = names(data_olahan_persen)[i],
+                                       Correlation = a$estimate,
+                                       Cutoff = as.factor(cutoff),
+                                       P_Value = a$p.value,
+                                       Decision = as.factor(decision)))
+  
 }
 
-plot_konvergen(hb1)
+cor_persen %>%
+  filter(abs(Correlation) >= 0.1)
 ```
+
+## Cek Multikolinearitas
+```{r}
+# Korelasi 0.2 keatas
+car::vif(
+lm(APS_Disab ~ 
+     Persen_desa_dalam_hutan +
+     Persen_desa_luar_hutan,
+   data = data_olahan_persen)
+)
+```
+
+## EBLUP APS Disabilitas
+```{r}
+EBLUP_persen <- data_olahan_persen %>%
+  mutate(
+    RSE_Disab = ifelse(RSE_Disab == 0, 0.001, RSE_Disab),
+    VarDir = (APS_Disab*RSE_Disab)^2
+    )
+
+# Model dengan semua variabel yang memiliki Korelasi >= 0.25
+Eblup3 <- eblupfh(formula = APS_Disab ~
+                        Persen_desa_dalam_hutan +
+                        Persen_desa_luar_hutan,
+                  vardir = "VarDir",
+                  data = EBLUP_persen[-c(18,21,24,28),],
+                  method = "REML")
+
+Eblup3$fit$estcoef                                   # estimasi paramter
+Eblup3$df_res$eblup                                  # hasil pendugaan tak langsung
+Eblup3$df_res$mse                                    # MSE
+Eblup3$df_res$random_effect                          # randomeffect
+(sqrt(Eblup3$df_res$mse)/Eblup3$df_res$eblup*100)    # hasil RSE pendugaan tidak langsung
+```
+
+## SAE HB Beta APS Disabilitas
+```{r}
+set.seed(123)
+
+HB_persen <- data_olahan_persen %>%
+  mutate(
+    APS_Disab = ifelse(APS_Disab == 0, 0.0001,
+                       ifelse(APS_Disab == 1, 0.9999, APS_Disab))
+  )
+
+# Menggunakan Cutoff Korelasi >= 0.2
+HB5 <- saeHB::Beta(formula = APS_Disab ~ 
+                     Persen_desa_dalam_hutan +
+                     Persen_desa_luar_hutan, 
+                   iter.update = 100, 
+                   iter.mcmc = 50000, 
+                   thin = 25,
+                   burn.in = 10000, 
+                   data = HB_persen)
+
+```
+
+## Pengecekan Hasil SAE HB
+```{r}
+# Cek Koefisien
+HB5$coefficient[,-(4:6)]
+
+# Cek Indirect
+HB5$Est$MEAN
+
+# Cek Standar Deviasi
+HB5$Est$SD
+
+# Cek RSE
+summary(
+  as.data.frame(HB5$Est$SD/HB5$Est$MEAN*100) %>%
+  mutate(
+    RSE = as.factor(ifelse(HB5$Est$SD/HB5$Est$MEAN*100 >= 50, ">=50%",
+                           ifelse(HB5$Est$SD/HB5$Est$MEAN*100 >= 25, ">=25%",
+                                  "<25%")))
+    )
+)
+  
+```
+
