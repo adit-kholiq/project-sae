@@ -10,6 +10,7 @@ output: html_document
 NTT_data_olahan_rasio <- data_olah[c(11:32),c(5,6,61:69)]
 NTT_data_olahan_persen <- data_olah[c(11:32),c(5,6,53:60)]
 NTT_data_olahan_jumlah <- data_olah[c(11:32),c(5,6,8:13,15:22,24:30,32,35,38:41,43,46,48:50)]
+NTT_data_olahan <- data_olah[c(11:32),-c(1,2)]
 ```
 
 
@@ -54,36 +55,11 @@ NTT_cor_jumlah %>%
 car::vif(
 lm(APS_Disab ~ 
      keluarga_kumuh +
-     desa_luar_hutan +
      jumlah_SKTM +
      jumlah_warga_kekurangan_gizi +
      jumlah_desa_lalu_lintas_darat,
      data = NTT_data_olahan_jumlah)
 )
-```
-
-## EBLUP APS Disabilitas NTT
-```{r}
-NTT_EBLUP_jumlah <- NTT_data_olahan_jumlah %>%
-  mutate(
-    RSE_Disab = ifelse(RSE_Disab == 0, 0.001, RSE_Disab),
-    VarDir = (APS_Disab*RSE_Disab)^2
-    )
-
-# Model dengan semua variabel yang memiliki Korelasi >= 0.2
-NTT_Eblup1 <- eblupfh(formula = APS_Disab ~
-                        keluarga_kumuh +
-                        desa_luar_hutan +
-                        jumlah_SKTM +
-                        jumlah_warga_kekurangan_gizi,
-              vardir = "VarDir",
-              data = NTT_EBLUP_jumlah)
-
-NTT_Eblup1$fit$estcoef                       # estimasi paramter
-NTT_Eblup1$df_res$eblup                      # hasil pendugaan tak langsung
-NTT_Eblup1$df_res$mse                        # MSE
-NTT_Eblup1$df_res$random_effect              # randomeffect
-(sqrt(NTT_Eblup1$df_res$mse)/NTT_Eblup1$df_res$eblup*100)    # hasil RSE pendugaan tidak langsung
 ```
 
 ## SAE HB Beta NTT
@@ -98,11 +74,10 @@ NTT_HB_jumlah <- NTT_data_olahan_jumlah %>%
 
 # Menggunakan 4 Variabel
 NTT_HB1 <- saeHB::Beta(formula = APS_Disab ~ 
-                        keluarga_kumuh +
-                        desa_luar_hutan +
-                        jumlah_SKTM +
-                        jumlah_warga_kekurangan_gizi, 
-                   iter.update = 200, 
+                        desa_tepi_hutan +
+                        jumlah_rs +
+                        jumlah_desa_lalu_lintas_darat, 
+                   iter.update = 250, 
                    iter.mcmc = 50000, 
                    thin = 25,
                    burn.in = 10000, 
@@ -110,11 +85,9 @@ NTT_HB1 <- saeHB::Beta(formula = APS_Disab ~
 
 # Menggunakan 2 Variabel
 NTT_HB2 <- saeHB::Beta(formula = APS_Disab ~ 
-                         keluarga_kumuh +
                          jumlah_SKTM +
-                         jumlah_warga_kekurangan_gizi +
                          jumlah_desa_lalu_lintas_darat, 
-                   iter.update = 200, 
+                   iter.update = 250, 
                    iter.mcmc = 50000, 
                    thin = 25,
                    burn.in = 10000, 
@@ -208,7 +181,7 @@ for (i in 1:(ncol(NTT_data_olahan_rasio))) {
 }
 
 NTT_cor_rasio %>%
-  filter(abs(Correlation)>=0.3)
+  filter(abs(Correlation)>=0.2)
 
 ```
 
@@ -222,31 +195,6 @@ lm(APS_Disab ~
      Rasio_angkutan_umum_darat,
      data = NTT_data_olahan_rasio)
 )
-```
-
-## EBLUP APS Disabilitas NTT
-```{r}
-NTT_EBLUP_rasio <- NTT_data_olahan_rasio %>%
-  mutate(
-    RSE_Disab = ifelse(RSE_Disab == 0, 0.001, RSE_Disab),
-    VarDir = (APS_Disab*RSE_Disab)^2
-    )
-
-# Model dengan semua variabel yang memiliki Korelasi >= 0.2
-NTT_Eblup2 <- eblupfh(formula = APS_Disab ~
-                        Rasio_desa_kota +
-                        Rasio_murid_smp +
-                        Rasio_murid_slb +
-                        Rasio_nakes_faskes +
-                        Rasio_angkutan_umum_darat,
-              vardir = "VarDir",
-              data = NTT_EBLUP_rasio)
-
-NTT_Eblup2$fit$estcoef                       # estimasi paramter
-NTT_Eblup2$df_res$eblup                      # hasil pendugaan tak langsung
-NTT_Eblup2$df_res$mse                        # MSE
-NTT_Eblup2$df_res$random_effect              # randomeffect
-(sqrt(NTT_Eblup2$df_res$mse)/NTT_Eblup2$df_res$eblup*100)    # hasil RSE pendugaan tidak langsung
 ```
 
 ## SAE HB Beta NTT
@@ -384,30 +332,6 @@ lm(APS_Disab ~
 )
 ```
 
-## EBLUP APS Disabilitas NTT
-```{r}
-NTT_EBLUP_persen <- NTT_data_olahan_persen %>%
-  mutate(
-    RSE_Disab = ifelse(RSE_Disab == 0, 0.001, RSE_Disab),
-    VarDir = (APS_Disab*RSE_Disab)^2
-    )
-
-# Model dengan semua variabel yang memiliki Korelasi >= 0.2
-NTT_Eblup3 <- eblupfh(formula = APS_Disab ~
-                        persen_perkotaan +
-                        persen_kumuh +
-                        Persen_desa_dalam_hutan +
-                        Persen_desa_tepi_hutan,
-              vardir = "VarDir",
-              data = NTT_EBLUP_persen)
-
-NTT_Eblup3$fit$estcoef                       # estimasi paramter
-NTT_Eblup3$df_res$eblup                      # hasil pendugaan tak langsung
-NTT_Eblup3$df_res$mse                        # MSE
-NTT_Eblup3$df_res$random_effect              # randomeffect
-(sqrt(NTT_Eblup3$df_res$mse)/NTT_Eblup3$df_res$eblup*100)    # hasil RSE pendugaan tidak langsung
-```
-
 ## SAE HB Beta NTT
 ```{r}
 set.seed(123)
@@ -484,6 +408,141 @@ summary(
                                   "<25%")))
     )
 )
+```
+
+## Simpan Hasil Terbaik
+```{r}
+# Simpan Hasil
+# NTT_HB6$Est$RSE <- NTT_HB6$Est$SD/NTT_HB6$Est$MEAN*100
+# NTT_hasil_persen <- NTT_HB6$Est[,-c(4:6)]
+# write.csv(NTT_hasil_rasio, "NTT_hasil_rasio(1).csv")
+```
+
+# DATA SEMUA
+## Cek Korelasi Data (NTT)
+```{r}
+# Membuat data frame kosong
+NTT_cor <- data.frame(Variable = character(),
+                      Correlation = numeric(),
+                      Cutoff = character(),
+                      P_Value = numeric(),
+                      Decision = character(),
+                      stringsAsFactors = FALSE)
+
+# Melakukan Pengecekan Korelasi Provinsi NTT - data Jumlah
+for (i in 1:(ncol(NTT_data_olahan))) {
+  # Menghitung uji korelasi
+  a <- cor.test(x = NTT_data_olahan[[i]], y = NTT_data_olahan$APS_Disab, method = "spearman")
+  
+  cutoff <- ifelse(abs(a$estimate) >= 0.5, "Korelasi >= 0,5", 
+                     ifelse(abs(a$estimate) >= 0.3,"Korelasi >= 0,3",
+                            ifelse(abs(a$estimate) >= 0.2,"Korelasi >= 0,2",
+                                   ifelse(abs(a$estimate) >= 0.1,"Korelasi >= 0,1","Korelasi Rendah"))))
+  
+  decision <- ifelse(a$p.value < 0.05, "Signifikan 5 Persen", 
+                     ifelse(a$p.value < 0.1,"Signifikan 10 Persen","Tidak Signifikan"))
+  
+  NTT_cor <- rbind(NTT_cor, data.frame(Variable = names(NTT_data_olahan)[i],
+                                       Correlation = a$estimate,
+                                       Cutoff = as.factor(cutoff),
+                                       P_Value = a$p.value,
+                                       Decision = as.factor(decision)))
+}
+
+NTT_cor %>%
+  filter(abs(Correlation) >=0.3)
+
+```
+
+```{r}
+# Korelasi 0.3 keatas
+car::vif(
+lm(APS_Disab ~ 
+     keluarga_kumuh +
+     desa_luar_hutan +
+     jumlah_SKTM +
+     jumlah_sarana_kesehatan,
+     data = NTT_data_olahan)
+)
+```
+
+## SAE HB Beta NTT
+```{r}
+set.seed(123)
+
+NTT_HB_jumlah <- NTT_data_olahan_jumlah %>%
+  mutate(
+    APS_Disab = ifelse(APS_Disab == 0, 0.0001,
+                       ifelse(APS_Disab == 1, 0.9999, APS_Disab))
+  )
+
+# Menggunakan 4 Variabel
+NTT_HB1 <- saeHB::Beta(formula = APS_Disab ~ 
+                        keluarga_kumuh +
+                        desa_luar_hutan +
+                        jumlah_SKTM +
+                        jumlah_warga_kekurangan_gizi, 
+                   iter.update = 200, 
+                   iter.mcmc = 50000, 
+                   thin = 25,
+                   burn.in = 10000, 
+                   data = NTT_HB_jumlah)
+
+# Menggunakan 2 Variabel
+NTT_HB2 <- saeHB::Beta(formula = APS_Disab ~ 
+                         keluarga_kumuh +
+                         desa_luar_hutan, 
+                   iter.update = 250, 
+                   iter.mcmc = 50000, 
+                   thin = 25,
+                   burn.in = 10000, 
+                   data = NTT_HB_jumlah)
+
+```
+
+## Pengecekan Hasil SAE HB
+```{r}
+# Cek Koefisien
+NTT_HB1$coefficient[,-(4:6)]
+
+# Cek Indirect
+NTT_HB1$Est$MEAN
+
+# Cek Standar Deviasi
+NTT_HB1$Est$SD
+
+# Cek RSE
+summary(
+  as.data.frame(NTT_HB1$Est$SD/NTT_HB1$Est$MEAN*100) %>%
+  mutate(
+    RSE = as.factor(ifelse(NTT_HB1$Est$SD/NTT_HB1$Est$MEAN*100 >= 50, ">=50%",
+                           ifelse(NTT_HB1$Est$SD/NTT_HB1$Est$MEAN*100 >= 25, ">=25%",
+                                  "<25%")))
+    )
+)
+
+```
+
+```{r}
+# Cek Koefisien
+NTT_HB2$coefficient[,-(4:6)]
+
+# Cek Indirect
+NTT_HB2$Est$MEAN
+
+# Cek Standar Deviasi
+NTT_HB2$Est$SD
+
+# Cek RSE
+summary(
+  as.data.frame(NTT_HB2$Est$SD/NTT_HB2$Est$MEAN*100) %>%
+  mutate(
+    RSE = as.factor(ifelse(NTT_HB2$Est$SD/NTT_HB2$Est$MEAN*100 >= 50, ">=50%",
+                           ifelse(NTT_HB2$Est$SD/NTT_HB2$Est$MEAN*100 >= 25, ">=25%",
+                                  "<25%")))
+    )
+)
+
 ```
 
 ## Simpan Hasil Terbaik

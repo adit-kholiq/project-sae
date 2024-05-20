@@ -66,29 +66,6 @@ lm(APS_Disab ~
 
 ```
 
-## EBLUP APS Disabilitas NTT
-```{r}
-NTB_EBLUP_jumlah <- NTB_data_olahan_jumlah %>%
-  mutate(
-    RSE_Disab = ifelse(RSE_Disab == 0, 0.001, RSE_Disab),
-    VarDir = (APS_Disab*RSE_Disab)^2
-    )
-
-# Model dengan semua variabel yang memiliki Korelasi >= 0.2
-NTB_Eblup1 <- eblupfh(formula = APS_Disab ~
-                        desa_tepi_hutan +
-                        jumlah_rs +
-                        jumlah_desa_lalu_lintas_darat,
-              vardir = "VarDir",
-              data = NTB_EBLUP_jumlah)
-
-NTB_Eblup1$fit$estcoef                       # estimasi paramter
-NTB_Eblup1$df_res$eblup                      # hasil pendugaan tak langsung
-NTB_Eblup1$df_res$mse                        # MSE
-NTB_Eblup1$df_res$random_effect              # randomeffect
-(sqrt(NTB_Eblup1$df_res$mse)/NTB_Eblup1$df_res$eblup*100)    # hasil RSE pendugaan tidak langsung
-```
-
 ## SAE HB Beta NTT
 ```{r}
 set.seed(123)
@@ -225,31 +202,6 @@ lm(APS_Disab ~
 )
 ```
 
-## EBLUP APS Disabilitas NTB
-```{r}
-NTB_EBLUP_rasio <- NTB_data_olahan_rasio %>%
-  mutate(
-    RSE_Disab = ifelse(RSE_Disab == 0, 0.001, RSE_Disab),
-    VarDir = (APS_Disab*RSE_Disab)^2
-    )
-
-# Model dengan semua variabel yang memiliki Korelasi >= 0.2
-NTB_Eblup2 <- eblupfh(formula = APS_Disab ~
-                        Rasio_desa_kota +
-                        Rasio_murid_smp +
-                        Rasio_murid_slb +
-                        Rasio_nakes_faskes +
-                        Rasio_angkutan_umum_darat,
-              vardir = "VarDir",
-              data = NTB_EBLUP_rasio)
-
-NTB_Eblup2$fit$estcoef                       # estimasi paramter
-NTB_Eblup2$df_res$eblup                      # hasil pendugaan tak langsung
-NTB_Eblup2$df_res$mse                        # MSE
-NTB_Eblup2$df_res$random_effect              # randomeffect
-(sqrt(NTB_Eblup2$df_res$mse)/NTB_Eblup2$df_res$eblup*100)    # hasil RSE pendugaan tidak langsung
-```
-
 ## SAE HB Beta NTB
 ```{r}
 NTB_HB_rasio <- NTB_data_olahan_rasio %>%
@@ -381,28 +333,6 @@ lm(APS_Disab ~
      Persen_desa_tepi_hutan,
      data = NTB_data_olahan_persen)
 )
-```
-
-## EBLUP APS Disabilitas NTT
-```{r}
-NTB_EBLUP_persen <- NTB_data_olahan_persen %>%
-  mutate(
-    RSE_Disab = ifelse(RSE_Disab == 0, 0.001, RSE_Disab),
-    VarDir = (APS_Disab*RSE_Disab)^2
-    )
-
-# Model dengan semua variabel yang memiliki Korelasi >= 0.2
-NTB_Eblup3 <- eblupfh(formula = APS_Disab ~
-                        Persen_desa_dalam_hutan +
-                        Persen_desa_tepi_hutan,
-              vardir = "VarDir",
-              data = NTB_EBLUP_persen)
-
-NTB_Eblup3$fit$estcoef                       # estimasi paramter
-NTB_Eblup3$df_res$eblup                      # hasil pendugaan tak langsung
-NTB_Eblup3$df_res$mse                        # MSE
-NTB_Eblup3$df_res$random_effect              # randomeffect
-(sqrt(NTB_Eblup3$df_res$mse)/NTB_Eblup3$df_res$eblup*100)    # hasil RSE pendugaan tidak langsung
 ```
 
 ## SAE HB Beta NTT
