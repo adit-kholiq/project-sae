@@ -45,7 +45,7 @@ for (i in 1:(ncol(NTT_data_olahan_jumlah))) {
 }
 
 NTT_cor_jumlah %>%
-  filter(P_Value <= 0.1)
+  filter(abs(Correlation) >=0.3)
 
 ```
 
@@ -53,8 +53,11 @@ NTT_cor_jumlah %>%
 # Korelasi 0.3 keatas
 car::vif(
 lm(APS_Disab ~ 
-     desa_tepi_hutan +
-     desa_luar_hutan,
+     keluarga_kumuh +
+     desa_luar_hutan +
+     jumlah_SKTM +
+     jumlah_warga_kekurangan_gizi +
+     jumlah_desa_lalu_lintas_darat,
      data = NTT_data_olahan_jumlah)
 )
 ```
@@ -69,8 +72,10 @@ NTT_EBLUP_jumlah <- NTT_data_olahan_jumlah %>%
 
 # Model dengan semua variabel yang memiliki Korelasi >= 0.2
 NTT_Eblup1 <- eblupfh(formula = APS_Disab ~
-                                     desa_tepi_hutan +
-                                     desa_luar_hutan,
+                        keluarga_kumuh +
+                        desa_luar_hutan +
+                        jumlah_SKTM +
+                        jumlah_warga_kekurangan_gizi,
               vardir = "VarDir",
               data = NTT_EBLUP_jumlah)
 
@@ -93,12 +98,11 @@ NTT_HB_jumlah <- NTT_data_olahan_jumlah %>%
 
 # Menggunakan 4 Variabel
 NTT_HB1 <- saeHB::Beta(formula = APS_Disab ~ 
-                        Rasio_desa_kota +
-                        Rasio_murid_smp +
-                        Rasio_murid_slb +
-                        Rasio_nakes_faskes +
-                        Rasio_angkutan_umum_darat, 
-                   iter.update = 100, 
+                        keluarga_kumuh +
+                        desa_luar_hutan +
+                        jumlah_SKTM +
+                        jumlah_warga_kekurangan_gizi, 
+                   iter.update = 200, 
                    iter.mcmc = 50000, 
                    thin = 25,
                    burn.in = 10000, 
@@ -106,10 +110,11 @@ NTT_HB1 <- saeHB::Beta(formula = APS_Disab ~
 
 # Menggunakan 2 Variabel
 NTT_HB2 <- saeHB::Beta(formula = APS_Disab ~ 
-                        persen_perkotaan +
-                        Persen_desa_dalam_hutan +
-                        Persen_desa_luar_hutan, 
-                   iter.update = 100, 
+                         keluarga_kumuh +
+                         jumlah_SKTM +
+                         jumlah_warga_kekurangan_gizi +
+                         jumlah_desa_lalu_lintas_darat, 
+                   iter.update = 200, 
                    iter.mcmc = 50000, 
                    thin = 25,
                    burn.in = 10000, 

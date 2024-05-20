@@ -215,7 +215,7 @@ for (i in 1:(ncol(data_olahan_jumlah))) {
 }
 
 cor_jumlah %>%
-  filter(abs(Correlation) >= 0.15)
+  filter(abs(Correlation) >= 0.12)
 ```
 
 ## Cek Multikolinearitas
@@ -276,7 +276,7 @@ HB1 <- saeHB::Beta(formula = APS_Disab ~
                      keluarga_listrik +
                      desa_tepi_hutan +
                      jumlah_SKTM, 
-                   iter.update = 100, 
+                   iter.update = 200, 
                    iter.mcmc = 50000, 
                    thin = 25,
                    burn.in = 10000, 
@@ -337,6 +337,20 @@ summary(
     )
 )
 ```
+
+## Simpan Hasil Terbaik
+```{r}
+# Simpan Hasil
+
+# HB1$Est$RSE <- HB1$Est$SD/HB1$Est$MEAN*100
+# hasil_jumlah <- HB1$Est[,-c(4:6)]
+
+# HB2$Est$RSE <- HB2$Est$SD/HB2$Est$MEAN*100
+# hasil_jumlah <- HB2$Est[,-c(4:6)]
+
+# write.csv(hasil_jumlah, "Hasil_jumlah.csv")
+```
+
 
 # DATA RASIO
 ## Cek Korelasi Data Rasio
@@ -431,7 +445,7 @@ HB_rasio <- data_olahan_rasio %>%
 HB3 <- saeHB::Beta(formula = APS_Disab ~ 
                      Rasio_murid_smp +
                      Rasio_angkutan_umum_darat, 
-                   iter.update = 100, 
+                   iter.update = 200, 
                    iter.mcmc = 50000, 
                    thin = 25,
                    burn.in = 10000, 
@@ -442,7 +456,7 @@ HB4 <- saeHB::Beta(formula = APS_Disab ~
                      Rasio_murid_smp +
                      Rasio_nakes_faskes +
                      Rasio_angkutan_umum_darat, 
-                   iter.update = 100, 
+                   iter.update = 200, 
                    iter.mcmc = 50000, 
                    thin = 25,
                    burn.in = 10000, 
@@ -494,6 +508,19 @@ summary(
 )
 ```
 
+## Simpan Hasil Terbaik
+```{r}
+# Simpan Hasil
+
+# HB3$Est$RSE <- HB3$Est$SD/HB3$Est$MEAN*100
+# hasil_rasio <- HB3$Est[,-c(4:6)]
+
+# HB4$Est$RSE <- HB4$Est$SD/HB4$Est$MEAN*100
+# hasil_rasio <- HB4$Est[,-c(4:6)]
+
+# write.csv(hasil_rasio, "Hasil_rasio.csv")
+```
+
 
 # DATA PERSEN
 ## Cek Korelasi Data Persen
@@ -528,7 +555,7 @@ for (i in 1:(ncol(data_olahan_persen))) {
 }
 
 cor_persen %>%
-  filter(abs(Correlation) >= 0.1)
+  filter(abs(Correlation) >= 0.05)
 ```
 
 ## Cek Multikolinearitas
@@ -579,7 +606,7 @@ HB_persen <- data_olahan_persen %>%
 HB5 <- saeHB::Beta(formula = APS_Disab ~ 
                      Persen_desa_dalam_hutan +
                      Persen_desa_luar_hutan, 
-                   iter.update = 100, 
+                   iter.update = 200, 
                    iter.mcmc = 50000, 
                    thin = 25,
                    burn.in = 10000, 
@@ -608,5 +635,18 @@ summary(
     )
 )
   
+```
+
+## Simpan Hasil Terbaik
+```{r}
+# Simpan Hasil
+
+# HB5$Est$RSE <- HB5$Est$SD/HB5$Est$MEAN*100
+# hasil_persen <- HB5$Est[,-c(4:6)]
+
+# HB6$Est$RSE <- HB6$Est$SD/HB6$Est$MEAN*100
+# hasil_persen <- HB6$Est[,-c(4:6)]
+
+# write.csv(hasil_persen, "Hasil_persen.csv")
 ```
 
