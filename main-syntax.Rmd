@@ -511,7 +511,7 @@ for (i in 1:(ncol(data_olahan_persen))) {
 }
 
 cor_persen %>%
-  filter(abs(Correlation) >= 0.05)
+  filter(abs(Correlation) >= 0.1)
 ```
 
 ## Cek Multikolinearitas
