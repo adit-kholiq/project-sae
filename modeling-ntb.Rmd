@@ -371,10 +371,8 @@ NTB_cor_persen %>%
 # Korelasi 0.3 keatas
 car::vif(
 lm(APS_Disab ~ 
-     persen_perkotaan +
-     #persen_kumuh +
      Persen_desa_dalam_hutan +
-     Persen_desa_luar_hutan,
+     Persen_desa_tepi_hutan,
      data = NTB_data_olahan_persen)
 )
 ```
@@ -389,8 +387,6 @@ NTB_EBLUP_persen <- NTB_data_olahan_persen %>%
 
 # Model dengan semua variabel yang memiliki Korelasi >= 0.2
 NTB_Eblup3 <- eblupfh(formula = APS_Disab ~
-                        persen_perkotaan +
-                        persen_kumuh +
                         Persen_desa_dalam_hutan +
                         Persen_desa_tepi_hutan,
               vardir = "VarDir",
@@ -413,10 +409,9 @@ NTB_HB_persen <- NTB_data_olahan_persen %>%
                        ifelse(APS_Disab == 1, 0.9999, APS_Disab))
   )
 
+
 # Menggunakan 4 Variabel
 NTB_HB5 <- saeHB::Beta(formula = APS_Disab ~ 
-                        persen_perkotaan +
-                        persen_kumuh +
                         Persen_desa_dalam_hutan +
                         Persen_desa_tepi_hutan, 
                    iter.update = 100, 
