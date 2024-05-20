@@ -40,36 +40,17 @@ kode <- unique(PODES21_auxvar_1[,c(3,5)]) %>%
   )
 ```
 
+## Plot Konvergenitas
 ```{r}
-# Eksplorasi
-clean <- data %>%
-  filter(R407 >= 7 & R407 <= 17) %>%
-  mutate(KODE = paste0(R101,R102)) %>%
-  mutate(DISAB = ifelse((R1002 == 1 | R1002 == 2) |
-                        (R1003 == 5 | R1003 == 6) | 
-                        (R1004 == 1 | R1004 == 2) |
-                        (R1005 == 5 | R1005 == 6) |
-                        (R1006 == 1 | R1006 == 2) |
-                        (R1007 == 5 | R1007 == 6) |
-                        (R1008 == 1 | R1008 == 2) |
-                        (R1009 == 5 | R1009 == 6), 1, 0)) %>%
-  mutate(SEKUL = ifelse(R610 == 2, 1, 0)) %>%
-  mutate(DISAB_SEKUL = ifelse(DISAB == 1 & SEKUL == 1, 1, 0)) %>%
-  mutate(DISAB_NON_SEKUL = ifelse(DISAB == 1 & SEKUL == 0, 1, 0)) %>%
-  mutate(NON_DISAB_SEKUL = ifelse(DISAB == 0 & SEKUL == 1, 1, 0)) %>%
-  mutate(NON_DISAB_NON_SEKUL = ifelse(DISAB == 0 & SEKUL == 0, 1, 0)) %>%
-  select(c(KODE,DISAB,SEKUL,DISAB_SEKUL,DISAB_NON_SEKUL,NON_DISAB_SEKUL,NON_DISAB_NON_SEKUL))
+plot_konvergen <- function(model){
+  graphics.off()
+  par("mar")
+  par(mar=c(2,2,2,2))
+  plot(model$plot[[3]], col="red")
+  library(coda)
+  autocorr.plot(model$plot[[3]],col="red")
+}
 
-clean <- clean %>%
-  group_by(KODE) %>%
-  summarise(
-    jumlah_sampel = sum(DISAB),
-    jumlah_sampel_disab = sum(DISAB == 1),
-    jumlah_sampel_tidak = sum(DISAB == 0),
-    jumlah_sekolah = sum(SEKUL),
-    jumlah_sekolah_disab = sum(DISAB_SEKUL == 1),
-    jumlah_sekolah_tidak = sum(NON_DISAB_SEKUL == 1)
-  )
 ```
 
 ## Merge Data Podes

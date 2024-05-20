@@ -87,17 +87,6 @@ NTB_HB1 <- saeHB::Beta(formula = APS_Disab ~
                    burn.in = 10000, 
                    data = NTB_HB_jumlah)
 
-# Menggunakan 2 Variabel
-NTB_HB2 <- saeHB::Beta(formula = APS_Disab ~ 
-                        desa_tepi_hutan +
-                        jumlah_rs +
-                        jumlah_desa_sinyal_kuat, 
-                   iter.update = 200, 
-                   iter.mcmc = 50000, 
-                   thin = 25,
-                   burn.in = 10000, 
-                   data = NTB_HB_jumlah)
-
 ```
 
 ## Pengecekan Hasil SAE HB
@@ -123,34 +112,12 @@ summary(
 
 ```
 
-```{r}
-# Cek Koefisien
-NTB_HB2$coefficient[,-(4:6)]
-
-# Cek Indirect
-NTB_HB2$Est$MEAN
-
-# Cek Standar Deviasi
-NTB_HB2$Est$SD
-
-# Cek RSE
-summary(
-  as.data.frame(NTB_HB2$Est$SD/NTB_HB2$Est$MEAN*100) %>%
-  mutate(
-    RSE = as.factor(ifelse(NTB_HB2$Est$SD/NTB_HB2$Est$MEAN*100 >= 50, ">=50%",
-                           ifelse(NTB_HB2$Est$SD/NTB_HB2$Est$MEAN*100 >= 25, ">=25%",
-                                  "<25%")))
-    )
-)
-
-```
-
 ## Simpan Hasil Terbaik
 ```{r}
 # Simpan Hasil
-# NTB_HB2$Est$RSE <- NTB_HB2$Est$SD/NTB_HB2$Est$MEAN*100
-# NTB_hasil_jumlah <- NTB_HB2$Est[,-c(4:6)]
-# write.csv(NTB_hasil_jumlah, "NTB_hasil_jumlah(2).csv")
+NTB_HB1$Est$RSE <- NTB_HB1$Est$SD/NTB_HB1$Est$MEAN*100
+NTB_hasil_jumlah <- NTB_HB1$Est[,-c(4:6)]
+write.csv(NTB_hasil_jumlah, "NTB_hasil_jumlah.csv")
 ```
 
 

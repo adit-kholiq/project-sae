@@ -460,7 +460,6 @@ car::vif(
 lm(APS_Disab ~ 
      keluarga_kumuh +
      desa_luar_hutan +
-     jumlah_SKTM +
      jumlah_sarana_kesehatan,
      data = NTT_data_olahan)
 )
@@ -470,75 +469,42 @@ lm(APS_Disab ~
 ```{r}
 set.seed(123)
 
-NTT_HB_jumlah <- NTT_data_olahan_jumlah %>%
+NTT_HB <- NTT_data_olahan %>%
   mutate(
     APS_Disab = ifelse(APS_Disab == 0, 0.0001,
                        ifelse(APS_Disab == 1, 0.9999, APS_Disab))
   )
 
 # Menggunakan 4 Variabel
-NTT_HB1 <- saeHB::Beta(formula = APS_Disab ~ 
-                        keluarga_kumuh +
-                        desa_luar_hutan +
-                        jumlah_SKTM +
-                        jumlah_warga_kekurangan_gizi, 
-                   iter.update = 200, 
-                   iter.mcmc = 50000, 
-                   thin = 25,
-                   burn.in = 10000, 
-                   data = NTT_HB_jumlah)
-
-# Menggunakan 2 Variabel
-NTT_HB2 <- saeHB::Beta(formula = APS_Disab ~ 
+NTT_HB11 <- saeHB::Beta(formula = APS_Disab ~ 
                          keluarga_kumuh +
-                         desa_luar_hutan, 
-                   iter.update = 250, 
+                         desa_luar_hutan +
+                         jumlah_sarana_kesehatan, 
+                   iter.update = 500, 
                    iter.mcmc = 50000, 
                    thin = 25,
                    burn.in = 10000, 
-                   data = NTT_HB_jumlah)
+                   data = NTT_HB)
 
 ```
 
 ## Pengecekan Hasil SAE HB
 ```{r}
 # Cek Koefisien
-NTT_HB1$coefficient[,-(4:6)]
+NTT_HB11$coefficient[,-(4:6)]
 
 # Cek Indirect
-NTT_HB1$Est$MEAN
+NTT_HB11$Est$MEAN
 
 # Cek Standar Deviasi
-NTT_HB1$Est$SD
+NTT_HB11$Est$SD
 
 # Cek RSE
 summary(
-  as.data.frame(NTT_HB1$Est$SD/NTT_HB1$Est$MEAN*100) %>%
+  as.data.frame(NTT_HB11$Est$SD/NTT_HB11$Est$MEAN*100) %>%
   mutate(
-    RSE = as.factor(ifelse(NTT_HB1$Est$SD/NTT_HB1$Est$MEAN*100 >= 50, ">=50%",
-                           ifelse(NTT_HB1$Est$SD/NTT_HB1$Est$MEAN*100 >= 25, ">=25%",
-                                  "<25%")))
-    )
-)
-
-```
-
-```{r}
-# Cek Koefisien
-NTT_HB2$coefficient[,-(4:6)]
-
-# Cek Indirect
-NTT_HB2$Est$MEAN
-
-# Cek Standar Deviasi
-NTT_HB2$Est$SD
-
-# Cek RSE
-summary(
-  as.data.frame(NTT_HB2$Est$SD/NTT_HB2$Est$MEAN*100) %>%
-  mutate(
-    RSE = as.factor(ifelse(NTT_HB2$Est$SD/NTT_HB2$Est$MEAN*100 >= 50, ">=50%",
-                           ifelse(NTT_HB2$Est$SD/NTT_HB2$Est$MEAN*100 >= 25, ">=25%",
+    RSE = as.factor(ifelse(NTT_HB11$Est$SD/NTT_HB11$Est$MEAN*100 >= 50, ">=50%",
+                           ifelse(NTT_HB11$Est$SD/NTT_HB11$Est$MEAN*100 >= 25, ">=25%",
                                   "<25%")))
     )
 )
@@ -548,7 +514,7 @@ summary(
 ## Simpan Hasil Terbaik
 ```{r}
 # Simpan Hasil
-# NTT_HB6$Est$RSE <- NTT_HB6$Est$SD/NTT_HB6$Est$MEAN*100
-# NTT_hasil_persen <- NTT_HB6$Est[,-c(4:6)]
-# write.csv(NTT_hasil_rasio, "NTT_hasil_rasio(1).csv")
+# NTT_HB11$Est$RSE <- NTT_HB11$Est$SD/NTT_HB11$Est$MEAN*100
+# NTT_hasil <- NTT_HB11$Est[,-c(4:6)]
+# write.csv(NTT_hasil, "NTT_hasil.csv")
 ```
