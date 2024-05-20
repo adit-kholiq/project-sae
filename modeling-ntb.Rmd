@@ -45,18 +45,25 @@ for (i in 1:(ncol(NTB_data_olahan_jumlah))) {
 }
 
 NTB_cor_jumlah %>%
-  filter(P_Value <= 0.1)
+  filter(abs(Correlation) >=0.5)
 
 ```
 
 ```{r}
-# Korelasi 0.3 keatas
+# Korelasi 0.5 keatas
 car::vif(
 lm(APS_Disab ~ 
+     jumlah_rs +
      desa_tepi_hutan +
-     desa_luar_hutan,
+     #desa_penerangan_jalan +
+     #jumlah_tenaga_kesehatan +
+     #jumlah_faskes +
+     jumlah_desa_sinyal_kuat,
+     #jumlah_desa_lalu_lintas_darat +
+     #jumlah_desa_angkutan_umum,
      data = NTB_data_olahan_jumlah)
 )
+
 ```
 
 ## EBLUP APS Disabilitas NTT
@@ -69,8 +76,9 @@ NTB_EBLUP_jumlah <- NTB_data_olahan_jumlah %>%
 
 # Model dengan semua variabel yang memiliki Korelasi >= 0.2
 NTB_Eblup1 <- eblupfh(formula = APS_Disab ~
-                                     desa_tepi_hutan +
-                                     desa_luar_hutan,
+                        desa_tepi_hutan +
+                        jumlah_rs +
+                        jumlah_desa_lalu_lintas_darat,
               vardir = "VarDir",
               data = NTB_EBLUP_jumlah)
 
@@ -93,12 +101,10 @@ NTB_HB_jumlah <- NTB_data_olahan_jumlah %>%
 
 # Menggunakan 4 Variabel
 NTB_HB1 <- saeHB::Beta(formula = APS_Disab ~ 
-                        Rasio_desa_kota +
-                        Rasio_murid_smp +
-                        Rasio_murid_slb +
-                        Rasio_nakes_faskes +
-                        Rasio_angkutan_umum_darat, 
-                   iter.update = 100, 
+                        desa_tepi_hutan +
+                        jumlah_rs +
+                        jumlah_desa_lalu_lintas_darat, 
+                   iter.update = 200, 
                    iter.mcmc = 50000, 
                    thin = 25,
                    burn.in = 10000, 
@@ -106,10 +112,10 @@ NTB_HB1 <- saeHB::Beta(formula = APS_Disab ~
 
 # Menggunakan 2 Variabel
 NTB_HB2 <- saeHB::Beta(formula = APS_Disab ~ 
-                        persen_perkotaan +
-                        Persen_desa_dalam_hutan +
-                        Persen_desa_luar_hutan, 
-                   iter.update = 100, 
+                        desa_tepi_hutan +
+                        jumlah_rs +
+                        jumlah_desa_sinyal_kuat, 
+                   iter.update = 200, 
                    iter.mcmc = 50000, 
                    thin = 25,
                    burn.in = 10000, 
@@ -165,9 +171,9 @@ summary(
 ## Simpan Hasil Terbaik
 ```{r}
 # Simpan Hasil
-# NTB_HB6$Est$RSE <- NTB_HB6$Est$SD/NTB_HB6$Est$MEAN*100
-# NTB_hasil_persen <- NTB_HB6$Est[,-c(4:6)]
-# write.csv(NTB_hasil_rasio, "NTB_hasil_rasio(1).csv")
+# NTB_HB2$Est$RSE <- NTB_HB2$Est$SD/NTB_HB2$Est$MEAN*100
+# NTB_hasil_jumlah <- NTB_HB2$Est[,-c(4:6)]
+# write.csv(NTB_hasil_jumlah, "NTB_hasil_jumlah(2).csv")
 ```
 
 
