@@ -564,113 +564,184 @@ summary(
 # write.csv(hasil_persen, "Hasil_persen.csv")
 ```
 
-# DATA SEMUA
-## Cek Korelasi Data
+# PENGOLAHAN FINAL
+## Bagian Sri
 ```{r}
-# Membuat data frame kosong
-cor <- data.frame(Variable = character(),
-                      Correlation = numeric(),
-                      Cutoff = character(),
-                      P_Value = numeric(),
-                      Decision = character(),
-                      stringsAsFactors = FALSE)
-
-# Melakukan Pengecekan Korelasi Provinsi NTT - data Jumlah
-for (i in 1:(ncol(data_olahan))) {
-  # Menghitung uji korelasi
-  a <- cor.test(x = data_olahan[[i]], y = data_olahan$APS_Disab, method = "spearman")
-  
-  cutoff <- ifelse(abs(a$estimate) >= 0.5, "Korelasi >= 0,5", 
-                     ifelse(abs(a$estimate) >= 0.3,"Korelasi >= 0,3",
-                            ifelse(abs(a$estimate) >= 0.2,"Korelasi >= 0,2",
-                                   ifelse(abs(a$estimate) >= 0.1,"Korelasi >= 0,1","Korelasi Rendah"))))
-  
-  decision <- ifelse(a$p.value < 0.05, "Signifikan 5 Persen", 
-                     ifelse(a$p.value < 0.1,"Signifikan 10 Persen","Tidak Signifikan"))
-  
-  cor <- rbind(cor, data.frame(Variable = names(data_olahan)[i],
-                                       Correlation = a$estimate,
-                                       Cutoff = as.factor(cutoff),
-                                       P_Value = a$p.value,
-                                       Decision = as.factor(decision)))
-  
-}
-
-cor %>%
-  filter(abs(Correlation) >= 0.1) %>%
-  arrange(abs(Correlation))
-```
-
-## Cek Multikolinearitas
-```{r}
-# Korelasi 0.2 keatas
-car::vif(
-lm(APS_Disab ~ 
-     Rasio_murid_smp +
-     keluarga_listrik +
-     Persen_desa_luar_hutan +
-     Rasio_nakes_faskes +
-     jumlah_rs +
-     murid_slb,
-   data = data_olahan)
-)
-```
-
-## SAE HB Beta APS Disabilitas
-```{r}
-set.seed(123)
-
 HB <- data_olahan %>%
   mutate(
     APS_Disab = ifelse(APS_Disab == 0, 0.0001,
                        ifelse(APS_Disab == 1, 0.9999, APS_Disab))
   )
 
-# Menggunakan Cutoff Korelasi >= 0.2
-HB6 <- saeHB::Beta(formula = APS_Disab ~ 
-                     Rasio_murid_smp +
-                     keluarga_listrik +
-                     Persen_desa_luar_hutan +
-                     Rasio_nakes_faskes +
-                     jumlah_rs +
-                     murid_slb, 
-                   iter.update = 5, 
-                   iter.mcmc = 50000, 
-                   thin = 25,
-                   burn.in = 10000, 
-                   data = HB)
-
-```
-
-## Pengecekan Hasil SAE HB
-```{r}
-# Cek Koefisien
-HB6$coefficient[,-(4:6)]
-
-# Cek Indirect
-HB6$Est$MEAN
-
-# Cek Standar Deviasi
-HB6$Est$SD
+# Model SAE HB
+set.seed(123)
+HB_1 <- saeHB::Beta(formula = APS_Disab ~ 
+                      Persen_desa_dalam_hutan +
+                      Persen_desa_luar_hutan, 
+                    iter.update = 220, 
+                    iter.mcmc = 60000, 
+                    thin = 25,
+                    burn.in = 10000, 
+                    data = HB)
 
 # Cek RSE
 summary(
-  as.data.frame(HB6$Est$SD/HB6$Est$MEAN*100) %>%
+  as.data.frame(HB_1$Est$SD/HB_1$Est$MEAN*100) %>%
   mutate(
-    RSE = as.factor(ifelse(HB6$Est$SD/HB6$Est$MEAN*100 >= 50, ">=50%",
-                           ifelse(HB6$Est$SD/HB6$Est$MEAN*100 >= 25, ">=25%",
+    RSE = as.factor(ifelse(HB_1$Est$SD/HB_1$Est$MEAN*100 >= 50, ">=50%",
+                           ifelse(HB_1$Est$SD/HB_1$Est$MEAN*100 >= 25, ">=25%",
                                   "<25%")))
     )
 )
-  
+
+# Save Data (kalo bagus) -> konfirmasi dulu ke grup
+
+# HB_1$Est$RSE <- HB_1$Est$SD/HB_1$Est$MEAN*100
+# hasil_final_1 <- HB_1$Est[,-c(4:6)]
+
+# write.csv(hasil_final_1, "Hasil_Final_1.csv")
 ```
 
-## Simpan Hasil Terbaik
+## Bagian Fayza
 ```{r}
-# Simpan Hasil
+HB <- data_olahan %>%
+  mutate(
+    APS_Disab = ifelse(APS_Disab == 0, 0.0001,
+                       ifelse(APS_Disab == 1, 0.9999, APS_Disab))
+  )
 
-# HB6$Est$RSE <- HB6$Est$SD/HB6$Est$MEAN*100
-# hasil_persen <- HB6$Est[,-c(4:6)]
+set.seed(123)
+HB_2 <- saeHB::Beta(formula = APS_Disab ~ 
+                      Persen_desa_dalam_hutan +
+                      Persen_desa_luar_hutan, 
+                    iter.update = 225, 
+                    iter.mcmc = 60000, 
+                    thin = 25,
+                    burn.in = 10000, 
+                    data = HB)
 
-# write.csv(hasil_persen, "Hasil_persen.csv")
+# Cek RSE
+summary(
+  as.data.frame(HB_2$Est$SD/HB_2$Est$MEAN*100) %>%
+  mutate(
+    RSE = as.factor(ifelse(HB_2$Est$SD/HB_2$Est$MEAN*100 >= 50, ">=50%",
+                           ifelse(HB_2$Est$SD/HB_2$Est$MEAN*100 >= 25, ">=25%",
+                                  "<25%")))
+    )
+)
+
+# Save Data (kalo bagus) -> konfirmasi dulu ke grup
+
+# HB_2$Est$RSE <- HB_2$Est$SD/HB_2$Est$MEAN*100
+# hasil_final_2 <- HB_2$Est[,-c(4:6)]
+
+# write.csv(hasil_final_2, "Hasil_Final_2.csv")
+```
+
+## Bagian Adit
+```{r}
+HB <- data_olahan %>%
+  mutate(
+    APS_Disab = ifelse(APS_Disab == 0, 0.0001,
+                       ifelse(APS_Disab == 1, 0.9999, APS_Disab))
+  )
+
+set.seed(123)
+HB_3 <- saeHB::Beta(formula = APS_Disab ~ 
+                      Persen_desa_dalam_hutan +
+                      Persen_desa_luar_hutan, 
+                    iter.update = 230, 
+                    iter.mcmc = 60000, 
+                    thin = 30,
+                    burn.in = 10000, 
+                    data = HB)
+
+# Cek RSE
+summary(
+  as.data.frame(HB_3$Est$SD/HB_3$Est$MEAN*100) %>%
+  mutate(
+    RSE = as.factor(ifelse(HB_3$Est$SD/HB_3$Est$MEAN*100 >= 50, ">=50%",
+                           ifelse(HB_3$Est$SD/HB_3$Est$MEAN*100 >= 25, ">=25%",
+                                  "<25%")))
+    )
+)
+
+# Save Data (kalo bagus) -> konfirmasi dulu ke grup
+
+# HB_3$Est$RSE <- HB_3$Est$SD/HB_3$Est$MEAN*100
+# hasil_final_3 <- HB_3$Est[,-c(4:6)]
+
+# write.csv(hasil_final_3, "Hasil_Final_3.csv")
+```
+
+## Bagian Isna
+```{r}
+HB <- data_olahan %>%
+  mutate(
+    APS_Disab = ifelse(APS_Disab == 0, 0.0001,
+                       ifelse(APS_Disab == 1, 0.9999, APS_Disab))
+  )
+
+set.seed(123)
+HB_4 <- saeHB::Beta(formula = APS_Disab ~ 
+                      Persen_desa_dalam_hutan +
+                      Persen_desa_luar_hutan, 
+                    iter.update = 235, 
+                    iter.mcmc = 60000, 
+                    thin = 30,
+                    burn.in = 10000, 
+                    data = HB)
+
+# Cek RSE
+summary(
+  as.data.frame(HB_4$Est$SD/HB_4$Est$MEAN*100) %>%
+  mutate(
+    RSE = as.factor(ifelse(HB_4$Est$SD/HB_4$Est$MEAN*100 >= 50, ">=50%",
+                           ifelse(HB_4$Est$SD/HB_4$Est$MEAN*100 >= 25, ">=25%",
+                                  "<25%")))
+    )
+)
+
+# Save Data (kalo bagus) -> konfirmasi dulu ke grup
+
+# HB_4$Est$RSE <- HB_4$Est$SD/HB_4$Est$MEAN*100
+# hasil_final_4 <- HB_4$Est[,-c(4:6)]
+
+# write.csv(hasil_final_4, "Hasil_Final_4.csv")
+```
+
+## Bagian Afri
+```{r}
+HB <- data_olahan %>%
+  mutate(
+    APS_Disab = ifelse(APS_Disab == 0, 0.0001,
+                       ifelse(APS_Disab == 1, 0.9999, APS_Disab))
+  )
+
+set.seed(123)
+HB_5 <- saeHB::Beta(formula = APS_Disab ~ 
+                      Persen_desa_dalam_hutan +
+                      Persen_desa_luar_hutan, 
+                    iter.update = 240, 
+                    iter.mcmc = 60000, 
+                    thin = 35,
+                    burn.in = 10000, 
+                    data = HB)
+
+# Cek RSE
+summary(
+  as.data.frame(HB_5$Est$SD/HB_5$Est$MEAN*100) %>%
+  mutate(
+    RSE = as.factor(ifelse(HB_5$Est$SD/HB_5$Est$MEAN*100 >= 50, ">=50%",
+                           ifelse(HB_5$Est$SD/HB_5$Est$MEAN*100 >= 25, ">=25%",
+                                  "<25%")))
+    )
+)
+
+# Save Data (kalo bagus) -> konfirmasi dulu ke grup
+
+# HB_5$Est$RSE <- HB_5$Est$SD/HB_5$Est$MEAN*100
+# hasil_final_5 <- HB_5$Est[,-c(4:6)]
+
+# write.csv(hasil_final_5, "Hasil_Final_5.csv")
 ```
